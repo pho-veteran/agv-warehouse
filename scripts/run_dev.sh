@@ -52,23 +52,40 @@ case "$1" in
             source /opt/ros/jazzy/setup.bash
             ros2 run nav2_map_server map_saver_cli -f ${MAP_PATH}
         "
+        
+        # Fix permissions so host can access/modify files
+        echo "Fixing file permissions..."
+        docker compose exec agv_sim bash -c "
+            chown -R $(id -u):$(id -g) /ros2_ws/data/maps/
+        "
+        
         echo "Map saved!"
         echo "Files: ${MAP_PATH}.pgm and ${MAP_PATH}.yaml"
         ;;
+    fix-permissions)
+        echo "Fixing permissions for workspace files..."
+        docker compose exec agv_sim bash -c "
+            chown -R $(id -u):$(id -g) /ros2_ws/data/ 2>/dev/null || true
+            chown -R $(id -u):$(id -g) /ros2_ws/src/ 2>/dev/null || true
+            chown -R $(id -u):$(id -g) /ros2_ws/config/ 2>/dev/null || true
+        "
+        echo "Permissions fixed!"
+        ;;
     *)
-        echo "Usage: $0 {build|up|down|enter|bash|logs|build-ws|test|restart|teleop|save-map}"
+        echo "Usage: $0 {build|up|down|enter|bash|logs|build-ws|test|restart|teleop|save-map|fix-permissions}"
         echo ""
         echo "Commands:"
-        echo "  build      - Build Docker image"
-        echo "  up         - Start container in detached mode"
-        echo "  down       - Stop and remove container"
-        echo "  enter      - Enter the container (alias: bash)"
-        echo "  logs       - Show container logs"
-        echo "  build-ws   - Build ROS2 workspace in container"
-        echo "  test       - Run tests in workspace"
-        echo "  restart    - Restart container"
-        echo "  teleop     - Launch keyboard teleop control"
-        echo "  save-map   - Save current SLAM map (usage: save-map [name])"
+        echo "  build            - Build Docker image"
+        echo "  up               - Start container in detached mode"
+        echo "  down             - Stop and remove container"
+        echo "  enter            - Enter the container (alias: bash)"
+        echo "  logs             - Show container logs"
+        echo "  build-ws         - Build ROS2 workspace in container"
+        echo "  test             - Run tests in workspace"
+        echo "  restart          - Restart container"
+        echo "  teleop           - Launch keyboard teleop control"
+        echo "  save-map [name]  - Save current SLAM map with timestamp"
+        echo "  fix-permissions  - Fix file permissions for host access"
         exit 1
         ;;
 esac
