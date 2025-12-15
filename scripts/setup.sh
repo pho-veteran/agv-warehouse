@@ -25,6 +25,13 @@ if [ ! -d "navigation2" ]; then
     git clone -b jazzy https://github.com/ros-planning/navigation2.git
 fi
 
+# NOTE:
+# We no longer need to keep the full turtlebot_warehouse repo in src/.
+# Only the warehouse assets (worlds/models/maps) are needed, and they can be vendored into:
+#   src/turtlebot3_simulations/turtlebot3_warehouse_sim/warehouse_assets
+# If you want to (re)vendor assets, run from AGV_2/:
+#   ./scripts/vendor_warehouse_assets.sh
+
 # Note: Custom package agv_warehouse will be created inside container
 # after workspace is built
 cd ..

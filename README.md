@@ -39,7 +39,7 @@ cd AGV_2
 
 Script này sẽ:
 - Tạo cấu trúc thư mục
-- Clone các repositories cần thiết (turtlebot3, navigation2, slam_toolbox)
+- Clone các repositories cần thiết (turtlebot3, navigation2, slam_toolbox, turtlebot_warehouse)
 - Tạo file .env
 
 ### 2. Build Docker container
@@ -85,31 +85,78 @@ Hoặc:
 ./scripts/run_dev.sh bash
 ```
 
-### 6. Launch Gazebo với empty world hoặc house world
+### 6. Build ROS2 workspace (bao gồm warehouse worlds)
 
 Trong container:
 ```bash
+cd /ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+```
+
+### 7. Launch Gazebo với các world khác nhau
+
+**Empty World:**
+```bash
 source /opt/ros/jazzy/setup.bash
+source /ros2_ws/install/setup.bash
 export TURTLEBOT3_MODEL=waffle_pi
 ros2 launch turtlebot3_gazebo empty_world.launch.py
 ```
 
-Hoặc với house world:
+**House World:**
 ```bash
 export TURTLEBOT3_MODEL=waffle_pi
 ros2 launch turtlebot3_gazebo turtlebot3_house.launch.py
 ```
 
-### 7. Test với Empty World và Spawn Robot
+**Warehouse World (dùng trực tiếp world files từ `src/turtlebot_warehouse/.../worlds` và chạy trong turtlebot3_simulations):**
+```bash
+export TURTLEBOT3_MODEL=waffle_pi
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py
+```
+
+Hoặc với các tùy chọn:
+```bash
+# Warehouse không có mái
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py world:=no_roof_small_warehouse.world
+
+# Warehouse có mái
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py world:=small_warehouse.world
+
+# Không có GUI (headless mode)
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py gui:=false
+
+# Đặt vị trí spawn robot
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py x_pose:=2.0 y_pose:=1.0
+```
+
+Hoặc dùng helper script (chạy từ host, script sẽ `docker compose exec` vào container):
+```bash
+# Mặc định: gui=true, no_roof_small_warehouse.world
+./scripts/launch_warehouse_world.sh
+
+# Chọn world khác
+./scripts/launch_warehouse_world.sh --world small_warehouse.world
+
+# Headless mode
+./scripts/launch_warehouse_world.sh --headless
+
+# Đặt vị trí spawn robot
+./scripts/launch_warehouse_world.sh --x 2.0 --y 1.0
+```
+
+### 8. Test với Warehouse World và Spawn Robot
 
 
-Terminal 1 - Gazebo:
+Terminal 1 - Gazebo với Warehouse World:
 ```bash
 ./scripts/run_dev.sh enter
 # Trong container:
 source /opt/ros/jazzy/setup.bash
+source /ros2_ws/install/setup.bash
 export TURTLEBOT3_MODEL=waffle_pi
-ros2 launch turtlebot3_gazebo empty_world.launch.py
+ros2 launch turtlebot3_warehouse_sim turtlebot3_warehouse_world.launch.py
 ```
 
 Terminal 2 - Teleop:
@@ -117,6 +164,7 @@ Terminal 2 - Teleop:
 ./scripts/run_dev.sh enter
 # Trong container:
 source /opt/ros/jazzy/setup.bash
+source /ros2_ws/install/setup.bash
 export TURTLEBOT3_MODEL=waffle_pi
 ros2 run turtlebot3_teleop teleop_keyboard
 ```
@@ -158,10 +206,21 @@ Sử dụng các phím để điều khiển robot:
 
 ### X11 forwarding không hoạt động
 
-Đảm bảo DISPLAY được set:
+Đảm bảo DISPLAY được set đúng. Kiểm tra display hiện tại:
 ```bash
-export DISPLAY=:0
+# Kiểm tra display đang dùng
+echo $DISPLAY
+ls /tmp/.X11-unix/
+
+# Thường là :0 hoặc :1, set đúng display
+export DISPLAY=:1  # hoặc :0 tùy vào hệ thống
 xhost +local:docker
+```
+
+Nếu vẫn không hoạt động, có thể chạy headless mode (không cần GUI):
+```bash
+# Trong container
+ros2 launch turtlebot_warehouse_ros2 warehouse_world.launch.py gui:=false
 ```
 
 ### Gazebo không hiển thị
@@ -180,10 +239,28 @@ sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
 sudo systemctl restart docker
 ```
 
+## Warehouse World từ turtlebot_warehouse
+
+Dự án này tích hợp [turtlebot_warehouse repository](https://github.com/stevendes/turtlebot_warehouse) để sử dụng AWS RoboMaker Small Warehouse World. Repository này cung cấp:
+
+- **Warehouse World**: Môi trường kho hàng với kệ, tường, và các vật cản
+- **Turtlebot Models**: Các model turtlebot với camera
+- **Maps**: Bản đồ đã được tạo sẵn cho warehouse
+
+### Các world có sẵn:
+- `no_roof_small_warehouse.world`: Warehouse không có mái (mặc định)
+- `small_warehouse.world`: Warehouse có mái
+- `empty_test.world`: World trống để test
+
+### Maps có sẵn:
+Maps được lưu trong `src/turtlebot_warehouse/aws_robomaker_small_warehouse_world/maps/`:
+- `002/map.yaml` và `map.pgm`
+- `005/map.yaml` và `map.pgm` (có cả rotated version)
+
 ## Next Steps
 
 Sau khi hoàn thành Phase 1, tiếp tục với:
-- Phase 2: Điều hướng cơ bản 1 AGV
+- Phase 2: Điều hướng cơ bản 1 AGV (sử dụng warehouse world)
 - Phase 4: Logistics Operations
 - Phase 5: Hệ thống hoàn chỉnh
 

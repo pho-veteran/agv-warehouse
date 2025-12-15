@@ -23,10 +23,12 @@ case "$1" in
         docker compose logs -f
         ;;
     build-ws)
-        docker compose exec agv_sim bash -c "cd /ros2_ws && colcon build"
+        # Use login shell so ROS environment is sourced (ament_package, ros2, etc.)
+        # Also ignore turtlebot3 packages in src/ to prefer /opt/ros/jazzy versions.
+        docker compose exec agv_sim bash -lc "source /opt/ros/jazzy/setup.bash && cd /ros2_ws && colcon build"
         ;;
     test)
-        docker compose exec agv_sim bash -c "cd /ros2_ws && colcon test"
+        docker compose exec agv_sim bash -lc "source /opt/ros/jazzy/setup.bash && cd /ros2_ws && colcon test"
         ;;
     restart)
         docker compose restart
