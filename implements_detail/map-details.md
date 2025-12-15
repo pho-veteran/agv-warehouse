@@ -1,219 +1,217 @@
-# Chi tiết Thiết kế Bản đồ Kho Thông minh (Large Warehouse World)
+# Chi tiết Thiết kế Map Kho - Sử dụng Tugbot Warehouse
 
 ## 1. Tổng quan
 
-### 1.1. Mục tiêu
-Tạo một world kho hàng mới với diện tích lớn hơn, hỗ trợ đầy đủ các use case được định nghĩa trong `AGV_Design.md`:
-- Vận chuyển hàng đơn lẻ (A → B navigation)
-- Tránh vật cản động/tĩnh
-- Định vị & bám sát lộ trình
-- Sạc pin tự động
-- Nhận diện & tương tác với kệ hàng
-- Xử lý lỗi & phục hồi
+### 1.1. Thay đổi Kế hoạch
 
-### 1.2. So sánh với World Hiện tại
+**Kế hoạch ban đầu:** Tự tạo world 30x40m từ đầu  
+**Kế hoạch mới:** Sử dụng `tugbot_warehouse` từ Gazebo Fuel, chỉnh sửa cho phù hợp với tech stack hiện tại
 
-| Thuộc tính | `no_roof_small_warehouse.world` | **Large Warehouse (Mới)** |
-|------------|--------------------------------|---------------------------|
-| Kích thước | ~15m x 22m | **30m x 40m** |
-| Số kệ hàng | 7 kệ (ShelfD, E, F) | **24+ kệ** (tổ chức theo zones) |
-| Trạm sạc | Không có | **2-3 trạm sạc** |
-| Khu vực chức năng | Không rõ ràng | **6 zones** (nhập, xuất, lưu trữ, sạc, v.v.) |
-| Actors động | Không có | **3-4 actors** (người/forklift ảo) |
-| AR Tags | Không có | **Đánh dấu vị trí kệ** |
-| Độ phức tạp navigation | Thấp | Trung bình - Cao |
+### 1.2. Nguồn gốc Map
 
----
+| Thuộc tính | Giá trị |
+|------------|---------|
+| **Tên** | Tugbot Warehouse |
+| **Nguồn** | [Gazebo Fuel - MovAi](https://app.gazebosim.org/MovAi/worlds/tugbot_warehouse) |
+| **Mô tả gốc** | A simple warehouse to simulate a pick and drop Mov.Ai controller for Tugbot robot |
+| **SDF Version gốc** | 1.7 |
+| **Target SDF Version** | 1.8 (Gazebo Harmonic) |
 
-## 2. Layout Kho Hàng
+### 1.3. Tech Stack Target
 
-### 2.1. Sơ đồ Tổng thể (30m x 40m)
-
-```
-    ┌──────────────────────────────────────────────────────────────┐
-    │                    KHU NHẬP HÀNG (INBOUND)                   │  Y = 35m → 40m
-    │  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐                 │
-    │  │ D1  │  │ D2  │  │ D3  │  │ D4  │  │ D5  │   [Dock Area]   │
-    │  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘                 │
-    ├──────────────────────────────────────────────────────────────┤
-    │                                                              │
-    │     ═══════════════ MAIN AISLE ═══════════════               │  Y = 30m
-    │                                                              │
-    ├────────────────┬─────────────────────────┬───────────────────┤
-    │                │                         │                   │
-    │  ZONE A        │      ZONE B             │     ZONE C        │
-    │  KỆ LƯU TRỮ    │      KỆ LƯU TRỮ         │     KỆ LƯU TRỮ    │
-    │                │                         │                   │
-    │  ┌───┐ ┌───┐   │  ┌───┐ ┌───┐ ┌───┐     │   ┌───┐ ┌───┐     │  Y = 12m → 28m
-    │  │A1 │ │A2 │   │  │B1 │ │B2 │ │B3 │     │   │C1 │ │C2 │     │
-    │  ├───┤ ├───┤   │  ├───┤ ├───┤ ├───┤     │   ├───┤ ├───┤     │
-    │  │A3 │ │A4 │   │  │B4 │ │B5 │ │B6 │     │   │C3 │ │C4 │     │
-    │  ├───┤ ├───┤   │  ├───┤ ├───┤ ├───┤     │   ├───┤ ├───┤     │
-    │  │A5 │ │A6 │   │  │B7 │ │B8 │ │B9 │     │   │C5 │ │C6 │     │
-    │  └───┘ └───┘   │  └───┘ └───┘ └───┘     │   └───┘ └───┘     │
-    │                │                         │                   │
-    ├────────────────┴─────────────────────────┴───────────────────┤
-    │                                                              │
-    │     ═══════════════ SECONDARY AISLE ═══════════════          │  Y = 10m
-    │                                                              │
-    ├──────────────────────────────────────────────────────────────┤
-    │                                                              │
-    │  ┌──────────┐                              ┌───────────────┐ │
-    │  │ CHARGING │   KHU VỰC ĐỖ XE AGV          │  KHU XUẤT     │ │  Y = 0m → 8m
-    │  │ STATION  │   & BẢO TRÌ                  │  (OUTBOUND)   │ │
-    │  │  [⚡1]   │                              │  ┌───┐ ┌───┐  │ │
-    │  │  [⚡2]   │   ○ AGV Parking              │  │O1 │ │O2 │  │ │
-    │  │  [⚡3]   │   ○ Maintenance              │  └───┘ └───┘  │ │
-    │  └──────────┘                              └───────────────┘ │
-    │                                                              │
-    └──────────────────────────────────────────────────────────────┘
-         X = 0m                    X = 15m                 X = 30m
-```
-
-### 2.2. Định nghĩa các Khu vực (Zones)
-
-| Zone | Mục đích | Vị trí (x, y) | Kích thước |
-|------|----------|---------------|------------|
-| **Inbound** | Khu nhập hàng, dock tiếp nhận | (0-30, 35-40) | 30m x 5m |
-| **Zone A** | Khu lưu trữ nguyên liệu | (0-8, 12-28) | 8m x 16m |
-| **Zone B** | Khu lưu trữ chính (bulk storage) | (10-20, 12-28) | 10m x 16m |
-| **Zone C** | Khu hàng thành phẩm | (22-30, 12-28) | 8m x 16m |
-| **Charging** | Trạm sạc AGV | (0-5, 0-8) | 5m x 8m |
-| **Outbound** | Khu xuất hàng | (22-30, 0-8) | 8m x 8m |
-| **AGV Area** | Đỗ xe và bảo trì | (6-20, 0-8) | 14m x 8m |
-
-### 2.3. Lối đi (Aisles)
-
-```yaml
-aisles:
-  main_aisle:
-    description: "Lối đi chính ngang, nối Inbound với tất cả zones"
-    y_position: 30-32m
-    width: 2m
-    
-  secondary_aisle:
-    description: "Lối đi phụ, nối các zones với Charging và Outbound"
-    y_position: 10-12m
-    width: 2m
-    
-  vertical_aisle_1:
-    description: "Lối đi dọc giữa Zone A và B"
-    x_position: 8-10m
-    width: 2m
-    
-  vertical_aisle_2:
-    description: "Lối đi dọc giữa Zone B và C"
-    x_position: 20-22m
-    width: 2m
-    
-  inner_aisles:
-    description: "Lối đi giữa các dãy kệ"
-    width: 1.5m
-```
+| Component | Version | Notes |
+|-----------|---------|-------|
+| **ROS2** | Jazzy | Latest LTS |
+| **Gazebo** | Harmonic | gz-sim 8.x |
+| **Robot** | TurtleBot3 Waffle Pi | Thay thế Tugbot |
+| **Actor** | Walking Actor | Từ Gazebo Fuel |
 
 ---
 
-## 3. Chi tiết Models Sử dụng
+## 2. Phân tích World Gốc (`tugbot_warehouse.sdf`)
 
-### 3.1. Reuse từ `turtlebot3_warehouse_sim`
+### 2.1. Cấu trúc Models trong World
 
-| Model | Số lượng | Mục đích | Vị trí đặt |
-|-------|----------|----------|------------|
-| `aws_robomaker_warehouse_WallB_01` | 1 (scaled) | Tường bao quanh | Perimeter |
-| `aws_robomaker_warehouse_GroundB_01` | 1 (scaled/tiled) | Nền nhà kho | Toàn bộ |
-| `aws_robomaker_warehouse_ShelfE_01` | 12 | Kệ cao (bulk storage) | Zone B |
-| `aws_robomaker_warehouse_ShelfD_01` | 8 | Kệ trung bình | Zone A, C |
-| `aws_robomaker_warehouse_ShelfF_01` | 4 | Kệ đặc biệt | Inbound, Outbound |
-| `aws_robomaker_warehouse_DeskC_01` | 2 | Bàn làm việc | AGV Area |
-| `aws_robomaker_warehouse_Bucket_01` | 6 | Thùng chứa nhỏ | Rải rác |
-| `aws_robomaker_warehouse_ClutteringA_01` | 4 | Vật cản tĩnh | Corners |
-| `aws_robomaker_warehouse_ClutteringC_01` | 4 | Pallet hàng | Near shelves |
-| `aws_robomaker_warehouse_ClutteringD_01` | 2 | Hàng hóa ngẫu nhiên | Random |
-| `aws_robomaker_warehouse_TrashCanC_01` | 3 | Thùng rác | Aisles |
-| `aws_robomaker_warehouse_PalletJackB_01` | 2 | Xe đẩy pallet | Inbound, Outbound |
-| `aws_robomaker_warehouse_Lamp_01` | 6 | Đèn chiếu sáng | Ceiling |
-
-### 3.2. Models Mới Cần Tạo
-
-#### 3.2.1. Charging Station Model
-
-```yaml
-model_name: warehouse_charging_station
-description: "Trạm sạc tượng trưng cho AGV"
-components:
-  - base_platform:
-      type: box
-      size: [0.8, 0.6, 0.1]  # meters
-      color: [0.2, 0.2, 0.2, 1]  # Dark gray
-  - charging_dock:
-      type: box
-      size: [0.3, 0.1, 0.4]
-      color: [0.1, 0.5, 0.1, 1]  # Green
-  - indicator_light:
-      type: cylinder
-      radius: 0.05
-      height: 0.1
-      color: [0, 1, 0, 1]  # Bright green LED
-  - charging_marker:
-      type: visual_only
-      description: "ArUco/QR marker để AGV nhận diện"
-      tag_id: 100-102  # Unique IDs for each station
+```
+tugbot_warehouse.sdf
+├── ground_plane (built-in)
+├── Warehouse (MovAi) ─────────────── Base building structure
+├── Tugbot (MovAi) ────────────────── REMOVE (thay bằng TurtleBot3)
+├── charging_station (MovAi) ──────── KEEP ✓
+├── cart1 (cart_model_2) ──────────── KEEP ✓
+├── Shelves
+│   ├── shelf_big (x5) ────────────── KEEP ✓
+│   └── shelf (x11) ───────────────── KEEP ✓
+├── pallet_box_mobile (x5) ────────── KEEP ✓
+└── pallet_box (static, x2) ───────── KEEP ✓
 ```
 
-#### 3.2.2. Floor Markers / Navigation Lines
+### 2.2. Vị trí các Models (Tọa độ XYZ)
 
 ```yaml
-model_name: warehouse_floor_marker
-types:
-  - lane_line:
-      description: "Vạch kẻ lane cho AGV"
-      color: yellow
-      width: 0.1m
-  - zone_marker:
-      description: "Đánh dấu ranh giới zone"
-      color: blue
-      width: 0.15m
-  - stop_line:
-      description: "Vạch dừng tại các giao lộ"
-      color: red
-      width: 0.2m
+# Warehouse base
+warehouse:
+  pose: [0, 0, -0.09]
+  size_estimate: ~35m x 50m  # Dựa vào coordinates
+
+# Charging Station
+charging_station:
+  pose: [14.7, -10.6, -0.04]
+  description: "Góc phải dưới warehouse"
+
+# Tugbot (SẼ XÓA)
+tugbot:
+  pose: [13.9, -10.6, 0.1]
+  action: REMOVE
+
+# Cart
+cart1:
+  pose: [-5.73, 15, 0.25]
+  
+# Shelves - Big (5 units)
+shelf_big_0: [-9.34, -13.56, 0]
+shelf_big_1: [13.98, 15.32, 0]
+shelf_big_2: [6.20, -12.96, 0]
+shelf_big_3: [0.59, -12.96, 0]
+shelf_big_4: [-5.36, -12.96, 0]
+
+# Shelves - Regular (11 units)
+shelf:    [-4.42, -0.69, 0]
+shelf_0:  [-4.42, 2.31, 0]
+shelf_1:  [-4.42, 5.31, 0]
+shelf_2:  [-4.42, 8.34, 0]
+shelf_3:  [5.60, 8.34, 0]
+shelf_4:  [5.60, 5.31, 0]
+shelf_5:  [5.60, -0.69, 0]
+shelf_6:  [5.60, 2.31, 0]
+shelf_7:  [13.38, -21.24, 0]
+shelf_8:  [13.38, -19.00, 0]
+shelf_9:  [13.38, -16.45, 0]
+shelf_10: [13.38, -14.10, 0]
+
+# Pallet Boxes
+pallet_box_mobile:   [4.42, 14.70, 0.01]
+pallet_box_mobile_0: [4.45, 13.62, 0.01]
+pallet_box_mobile_1: [4.45, 12.23, 0.01]
+pallet_box (static): [-6.12, 13.71, 0.01]
+pallet_box_0 (static): [14.02, -24.34, 0.01]
 ```
 
-#### 3.2.3. Waypoint Markers (Visual Reference)
+### 2.3. Layout Visualization
 
-```yaml
-model_name: warehouse_waypoint
-description: "Điểm tham chiếu cho navigation"
-visual:
-  type: cylinder
-  radius: 0.15
-  height: 0.02
-  color: [0, 0.7, 0.7, 0.7]  # Semi-transparent cyan
-placement:
-  - Key intersection points
-  - In front of each shelf
-  - At charging stations
-  - At dock areas
+```
+        Y ↑
+          │
+    20m ──┼───────────────────────────────────────────────
+          │   [cart1]     [pallet_boxes]    [shelf_big_1]
+          │   (-5.7,15)   (4.4,12-15)       (14,15.3)
+    15m ──┼───────────────────────────────────────────────
+          │
+          │
+    10m ──┼───────────────────────────────────────────────
+          │   [shelf_2]                [shelf_3]
+          │   (-4.4,8.3)               (5.6,8.3)
+          │   [shelf_1]                [shelf_4]
+     5m ──┼   (-4.4,5.3)               (5.6,5.3)
+          │   [shelf_0]                [shelf_6]
+          │   (-4.4,2.3)               (5.6,2.3)
+          │   [shelf]                  [shelf_5]
+     0m ──┼───(-4.4,-0.7)──────────────(5.6,-0.7)─────────
+          │
+          │
+   -10m ──┼───────────────────────────[charging]──────────
+          │                            (14.7,-10.6)
+          │   [shelf_big_0]           [shelf_10] (13.4,-14)
+   -15m ──┼   (-9.3,-13.6)            [shelf_9]  (13.4,-16)
+          │   [shelf_big_4,3,2]       [shelf_8]  (13.4,-19)
+          │   (-5 to 6, -13)          [shelf_7]  (13.4,-21)
+   -20m ──┼───────────────────────────────────────────────
+          │                            [pallet_box_0]
+   -25m ──┼────────────────────────────(14,-24.3)─────────
+          │
+          └──────┼──────┼──────┼──────┼──────┼──────┼─────→ X
+               -10     -5      0      5     10     15
 ```
 
 ---
 
-## 4. Actors (Dynamic Obstacles)
+## 3. Thay đổi Cần Thực Hiện
 
-### 4.1. Định nghĩa Actors
+### 3.1. Cập nhật Gazebo Harmonic Compatibility
 
-Gazebo Harmonic hỗ trợ actors với scripted trajectories. Đây là các "người ảo" hoặc phương tiện di chuyển theo đường định sẵn.
-
-#### Actor 1: Warehouse Worker (Person)
+#### 3.1.1. SDF Version
 
 ```xml
+<!-- TỪ -->
+<sdf version='1.7'>
+
+<!-- THÀNH -->
+<sdf version='1.8'>
+```
+
+#### 3.1.2. Plugin Names (Ignition → Gazebo)
+
+```xml
+<!-- TỪ (Ignition Gazebo) -->
+<plugin name='ignition::gazebo::systems::Physics' filename='libignition-gazebo-physics-system.so'/>
+<plugin name='ignition::gazebo::systems::UserCommands' filename='libignition-gazebo-user-commands-system.so'/>
+<plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='libignition-gazebo-scene-broadcaster-system.so'/>
+<plugin name='ignition::gazebo::systems::Imu' filename='ignition-gazebo-imu-system'/>
+<plugin name='ignition::gazebo::systems::Sensors' filename='ignition-gazebo-sensors-system'>
+
+<!-- THÀNH (Gazebo Harmonic) -->
+<plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+<plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+<plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+<plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+<plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+```
+
+#### 3.1.3. Fuel URI Updates
+
+```xml
+<!-- TỪ (deprecated) -->
+<uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/Warehouse</uri>
+
+<!-- THÀNH (current) -->
+<uri>https://fuel.gazebosim.org/1.0/MovAi/models/Warehouse</uri>
+```
+
+### 3.2. Loại bỏ Tugbot
+
+```xml
+<!-- XÓA HOÀN TOÀN BLOCK NÀY -->
+<include>
+  <uri>https://fuel.ignitionrobotics.org/1.0/MovAi/models/Tugbot</uri>
+  <name>tugbot</name>
+  <pose>13.9 -10.6 0.1 0 0 0</pose>
+</include>
+```
+
+**Lý do:** TurtleBot3 sẽ được spawn riêng qua launch file, không cần hardcode trong world.
+
+### 3.3. Thêm Walking Actors
+
+#### 3.3.1. Actor Configuration
+
+Sử dụng `Walking actor` model đã tải về, customize trajectory cho phù hợp với warehouse layout.
+
+```xml
+<!-- Actor 1: Đi dọc hành lang chính (Y = 0 to 10) -->
+<include>
+  <uri>model://Walking_actor</uri>
+  <name>worker_1</name>
+  <pose>0 0 0 0 0 0</pose>
+</include>
+
+<!-- HOẶC inline actor với custom trajectory -->
 <actor name="warehouse_worker_1">
   <skin>
-    <filename>walk.dae</filename>  <!-- Gazebo default walking animation -->
+    <filename>model://Walking_actor/meshes/walk.dae</filename>
     <scale>1.0</scale>
   </skin>
   <animation name="walking">
-    <filename>walk.dae</filename>
+    <filename>model://Walking_actor/meshes/walk.dae</filename>
     <scale>1.0</scale>
     <interpolate_x>true</interpolate_x>
   </animation>
@@ -222,486 +220,511 @@ Gazebo Harmonic hỗ trợ actors với scripted trajectories. Đây là các "n
     <delay_start>0.0</delay_start>
     <auto_start>true</auto_start>
     <trajectory id="0" type="walking">
-      <!-- Đi từ Zone A → Zone B → Outbound → Zone A -->
+      <!-- Route: Đi từ khu vực shelf trái sang phải -->
       <waypoint>
         <time>0</time>
-        <pose>4 20 0 0 0 0</pose>  <!-- Zone A -->
+        <pose>-4.0 0 0 0 0 0</pose>
       </waypoint>
       <waypoint>
-        <time>10</time>
-        <pose>15 20 0 0 0 0</pose>  <!-- Zone B -->
+        <time>8</time>
+        <pose>5.5 0 0 0 0 0</pose>
       </waypoint>
       <waypoint>
-        <time>20</time>
-        <pose>25 4 0 0 0 -1.57</pose>  <!-- Outbound -->
+        <time>16</time>
+        <pose>5.5 8 0 0 0 1.57</pose>
       </waypoint>
       <waypoint>
-        <time>35</time>
-        <pose>4 20 0 0 0 3.14</pose>  <!-- Back to Zone A -->
+        <time>24</time>
+        <pose>-4.0 8 0 0 0 3.14</pose>
+      </waypoint>
+      <waypoint>
+        <time>32</time>
+        <pose>-4.0 0 0 0 0 -1.57</pose>
       </waypoint>
     </trajectory>
   </script>
 </actor>
 ```
 
-#### Actor 2: Forklift Operator
+#### 3.3.2. Proposed Actor Trajectories
+
+```
+        Y ↑
+          │
+    15m ──┼─────────────────────────────────────────────
+          │                                              
+          │                                              
+    10m ──┼─────────────────────────────────────────────
+          │   ←←←←←←←←←← [Worker 1] ←←←←←←←←←           
+          │   ↓         (rectangular path)         ↑    
+     5m ──┼   ↓                                    ↑    
+          │   ↓                                    ↑    
+          │   ↓                                    ↑    
+     0m ──┼   →→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→→↑    
+          │                                              
+          │                                              
+   -10m ──┼─────────────[Worker 2]──────────────────────
+          │             (patrol near charging station)  
+          │             ○ → → → ○                       
+          │             ↑       ↓                       
+          │             ○ ← ← ← ○                       
+   -15m ──┼─────────────────────────────────────────────
+          │
+          └──────┼──────┼──────┼──────┼──────┼──────┼────→ X
+               -10     -5      0      5     10     15
+```
+
+---
+
+## 4. File Structure Mới
+
+### 4.1. Cấu trúc Package
+
+```
+AGV_2/src/turtlebot3_simulations/
+├── turtlebot3_warehouse_sim/           # Package hiện có
+│   ├── warehouse_assets/
+│   │   ├── models/
+│   │   │   ├── aws_robomaker_warehouse_*/  # Giữ nguyên (backup)
+│   │   │   └── Walking_actor/              # NEW - Copy từ implements_detail
+│   │   │       ├── model.config
+│   │   │       ├── model.sdf
+│   │   │       └── meshes/
+│   │   │           └── walk.dae
+│   │   └── worlds/
+│   │       ├── no_roof_small_warehouse.world  # Existing
+│   │       ├── small_warehouse.world          # Existing
+│   │       └── tugbot_warehouse.world         # NEW - Modified version
+│   └── launch/
+│       ├── turtlebot3_warehouse_world.launch.py      # Existing
+│       └── turtlebot3_tugbot_warehouse.launch.py     # NEW
+```
+
+### 4.2. Files Cần Tạo/Modify
+
+| File | Action | Description |
+|------|--------|-------------|
+| `tugbot_warehouse.world` | CREATE | Modified SDF for Gazebo Harmonic |
+| `Walking_actor/` | COPY | Copy từ `implements_detail/Walking actor/` |
+| `turtlebot3_tugbot_warehouse.launch.py` | CREATE | Launch file cho world mới |
+
+---
+
+## 5. Chi tiết Chỉnh sửa World File
+
+### 5.1. Header và Plugins
 
 ```xml
-<actor name="forklift_path_1">
-  <skin>
-    <filename>model://forklift_visual/mesh.dae</filename>
-    <scale>1.0</scale>
-  </skin>
-  <script>
-    <loop>true</loop>
-    <trajectory id="0" type="linear">
-      <!-- Route: Inbound → Zone B → Inbound -->
-      <waypoint>
-        <time>0</time>
-        <pose>15 38 0 0 0 -1.57</pose>
-      </waypoint>
-      <waypoint>
-        <time>15</time>
-        <pose>15 20 0 0 0 -1.57</pose>
-      </waypoint>
-      <waypoint>
-        <time>25</time>
-        <pose>15 20 0 0 0 1.57</pose>  <!-- Turn around -->
-      </waypoint>
-      <waypoint>
-        <time>40</time>
-        <pose>15 38 0 0 0 1.57</pose>
-      </waypoint>
-    </trajectory>
-  </script>
-</actor>
-```
-
-#### Actor 3: Random Cart (Pushed by worker)
-
-```xml
-<actor name="moving_cart_1">
-  <link name="cart_link">
-    <visual name="cart_visual">
-      <geometry>
-        <box><size>0.8 0.5 0.8</size></box>
-      </geometry>
-      <material>
-        <ambient>0.5 0.5 0.5 1</ambient>
-      </material>
-    </visual>
-    <collision name="cart_collision">
-      <geometry>
-        <box><size>0.8 0.5 0.8</size></box>
-      </geometry>
-    </collision>
-  </link>
-  <script>
-    <loop>true</loop>
-    <trajectory id="0" type="linear">
-      <!-- Route ngẫu nhiên qua secondary aisle -->
-      <waypoint>
-        <time>0</time>
-        <pose>5 11 0.4 0 0 0</pose>
-      </waypoint>
-      <waypoint>
-        <time>20</time>
-        <pose>25 11 0.4 0 0 0</pose>
-      </waypoint>
-      <waypoint>
-        <time>40</time>
-        <pose>5 11 0.4 0 0 3.14</pose>
-      </waypoint>
-    </trajectory>
-  </script>
-</actor>
-```
-
-### 4.2. Actor Trajectories Map
-
-```
-    ┌──────────────────────────────────────────────────────────────┐
-    │                         INBOUND                              │
-    │                            ↓                                 │
-    │                       [Forklift]                             │
-    │                            ↓                                 │
-    │     ═══════════════════════════════════════════════════      │
-    │         ← ← [Worker 1] → → → → → →                           │
-    │     ┌───┐       ↑       ┌───┐       ↓       ┌───┐            │
-    │     │   │       │       │   │       │       │   │            │
-    │     │   │       │       │   │       │       │   │            │
-    │     └───┘       │       └───┘       ↓       └───┘            │
-    │                 │                   ↓                         │
-    │                 └─────────────────→ ↓                         │
-    │     ═══════════════════════════════════════════════════      │
-    │         → → → → [Cart] → → → → → → → → → →                   │
-    │                                                              │
-    │  [Charging]                                   [Outbound]     │
-    │                                                    ↑         │
-    │                                               Worker 1       │
-    └──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 5. Điểm Quan trọng (POI - Points of Interest)
-
-### 5.1. Waypoints cho Navigation
-
-```yaml
-waypoints:
-  # Charging Stations
-  charging_station_1:
-    position: [2.0, 2.0, 0]
-    type: charging
-    tag_id: 100
+<?xml version='1.0' encoding='UTF-8'?>
+<sdf version='1.8'>
+  <world name='tugbot_warehouse'>
+    <gravity>0 0 -9.8</gravity>
     
-  charging_station_2:
-    position: [2.0, 4.0, 0]
-    type: charging
-    tag_id: 101
-    
-  charging_station_3:
-    position: [2.0, 6.0, 0]
-    type: charging
-    tag_id: 102
-
-  # Inbound Docks
-  dock_1:
-    position: [4.0, 38.0, 0]
-    type: inbound_dock
-    tag_id: 200
-    
-  dock_2:
-    position: [10.0, 38.0, 0]
-    type: inbound_dock
-    tag_id: 201
-    
-  dock_3:
-    position: [16.0, 38.0, 0]
-    type: inbound_dock
-    tag_id: 202
-
-  # Storage Shelves (Zone A - A1 to A6)
-  shelf_A1:
-    position: [3.0, 25.0, 0]
-    type: storage_shelf
-    tag_id: 301
-    zone: A
-    
-  shelf_A2:
-    position: [6.0, 25.0, 0]
-    type: storage_shelf
-    tag_id: 302
-    zone: A
-    
-  # ... (continue for all 24 shelves)
-
-  # Outbound Docks
-  outbound_1:
-    position: [24.0, 4.0, 0]
-    type: outbound_dock
-    tag_id: 400
-    
-  outbound_2:
-    position: [28.0, 4.0, 0]
-    type: outbound_dock
-    tag_id: 401
-    
-  # Key Intersections (for path planning)
-  intersection_1:
-    position: [9.0, 31.0, 0]
-    type: intersection
-    
-  intersection_2:
-    position: [21.0, 31.0, 0]
-    type: intersection
-    
-  intersection_3:
-    position: [9.0, 11.0, 0]
-    type: intersection
-    
-  intersection_4:
-    position: [21.0, 11.0, 0]
-    type: intersection
-```
-
-### 5.2. Vị trí đặt Kệ Chi tiết
-
-```yaml
-shelves_placement:
-  zone_a:
-    rows: 3
-    columns: 2
-    shelf_type: ShelfD_01
-    start_position: [3.0, 14.0]
-    spacing: [3.5, 4.5]
-    shelves:
-      - name: A1
-        position: [3.0, 25.0, 0]
-      - name: A2
-        position: [6.0, 25.0, 0]
-      - name: A3
-        position: [3.0, 20.5, 0]
-      - name: A4
-        position: [6.0, 20.5, 0]
-      - name: A5
-        position: [3.0, 16.0, 0]
-      - name: A6
-        position: [6.0, 16.0, 0]
-
-  zone_b:
-    rows: 3
-    columns: 3
-    shelf_type: ShelfE_01  # Taller shelves for bulk storage
-    start_position: [11.0, 14.0]
-    spacing: [3.5, 4.5]
-    shelves:
-      - name: B1
-        position: [11.0, 25.0, 0]
-      - name: B2
-        position: [14.5, 25.0, 0]
-      - name: B3
-        position: [18.0, 25.0, 0]
-      # ... B4-B9
-
-  zone_c:
-    rows: 3
-    columns: 2
-    shelf_type: ShelfD_01
-    start_position: [23.0, 14.0]
-    spacing: [3.5, 4.5]
-    shelves:
-      - name: C1
-        position: [23.0, 25.0, 0]
-      - name: C2
-        position: [26.5, 25.0, 0]
-      # ... C3-C6
-```
-
----
-
-## 6. Hỗ trợ Use Cases từ AGV_Design.md
-
-### 6.1. Use Case Mapping
-
-| Use Case | World Feature | Implementation |
-|----------|---------------|----------------|
-| **1. Vận chuyển hàng** | Inbound → Shelves → Outbound paths | Waypoints, clear aisles |
-| **2. Tránh vật cản động** | 3-4 Actors với trajectories | Actors following waypoints |
-| **3. Tránh vật cản tĩnh** | Clutter models, TrashCans, PalletJacks | Random placement obstacles |
-| **4. Định vị** | AR Tags trên kệ, floor markers | Visual markers for AMCL |
-| **5. Sạc pin tự động** | 3 Charging stations | Dedicated charging zone |
-| **6. Nhận diện kệ hàng** | ArUco tags trên mỗi shelf | Tag IDs 301-324 |
-| **7. Xử lý lỗi** | Narrow passages, intersections | Recovery areas designed |
-| **8. WMS Integration** | Logical zone division | Zone-based task assignment |
-
-### 6.2. Test Scenarios được hỗ trợ
-
-```yaml
-test_scenarios:
-  scenario_1_basic_navigation:
-    description: "AGV di chuyển từ Charging → Shelf A1 → Outbound"
-    waypoints: [charging_station_1, intersection_3, shelf_A1, intersection_1, outbound_1]
-    expected_distance: ~45m
-    expected_time: ~90s
-    
-  scenario_2_obstacle_avoidance:
-    description: "AGV tránh forklift đang di chuyển"
-    route: [dock_1, intersection_1, shelf_B5]
-    dynamic_obstacle: forklift_path_1
-    
-  scenario_3_narrow_passage:
-    description: "AGV đi qua lối đi hẹp giữa 2 kệ"
-    route: [shelf_B2, shelf_B5]  # Đi qua inner aisle
-    passage_width: 1.5m
-    
-  scenario_4_low_battery_return:
-    description: "AGV tự động về trạm sạc khi pin thấp"
-    trigger: battery < 20%
-    destination: nearest_charging_station
-    
-  scenario_5_multi_stop_delivery:
-    description: "AGV đi nhiều điểm: D1 → A1 → B3 → C2 → Outbound"
-    waypoints: [dock_1, shelf_A1, shelf_B3, shelf_C2, outbound_1]
-    
-  scenario_6_recovery_from_stuck:
-    description: "AGV bị kẹt tại intersection, recovery"
-    stuck_position: intersection_2
-    recovery_action: spin + backup + replan
-```
-
----
-
-## 7. File Structure mới
-
-```
-AGV_2/src/turtlebot3_simulations/turtlebot3_warehouse_sim/
-├── warehouse_assets/
-│   ├── models/
-│   │   ├── aws_robomaker_warehouse_*/     # Existing models
-│   │   ├── warehouse_charging_station/    # NEW
-│   │   │   ├── model.config
-│   │   │   ├── model.sdf
-│   │   │   └── materials/
-│   │   ├── warehouse_floor_marker/        # NEW
-│   │   │   ├── model.config
-│   │   │   └── model.sdf
-│   │   └── warehouse_waypoint/            # NEW
-│   │       ├── model.config
-│   │       └── model.sdf
-│   ├── worlds/
-│   │   ├── small_warehouse.world          # Existing
-│   │   ├── no_roof_small_warehouse.world  # Existing
-│   │   └── large_warehouse.world          # NEW - Main target
-│   └── maps/
-│       ├── 002/                           # Existing
-│       ├── 005/                           # Existing
-│       └── large_warehouse/               # NEW (after SLAM)
-│           ├── map.pgm
-│           ├── map.yaml
-│           └── waypoints.yaml
-├── launch/
-│   ├── turtlebot3_warehouse_world.launch.py
-│   └── turtlebot3_large_warehouse.launch.py  # NEW
-└── config/
-    └── large_warehouse_waypoints.yaml     # NEW
-```
-
----
-
-## 8. Implementation Steps (Phân chia công việc)
-
-### Phase 1: Chuẩn bị Models (2-3 ngày)
-
-- [ ] **Task 1.1:** Tạo model `warehouse_charging_station`
-  - Tạo `model.config` và `model.sdf`
-  - Test load trong Gazebo
-
-- [ ] **Task 1.2:** Tạo model `warehouse_floor_marker` (optional visual)
-  - Lane lines
-  - Zone boundaries
-
-- [ ] **Task 1.3:** Scale/tile `GroundB_01` cho 30x40m
-  - Hoặc tạo ground mới bằng simple plane
-
-### Phase 2: Tạo World File (2-3 ngày)
-
-- [ ] **Task 2.1:** Tạo `large_warehouse.world` base structure
-  - Ground plane 30x40m
-  - Boundary walls (có thể dùng simple boxes)
-  - Lighting setup (multiple ceiling lights)
-
-- [ ] **Task 2.2:** Đặt shelves theo layout
-  - Zone A: 6 ShelfD_01
-  - Zone B: 9 ShelfE_01
-  - Zone C: 6 ShelfD_01
-
-- [ ] **Task 2.3:** Đặt charging stations
-  - 3 stations tại Charging Zone
-
-- [ ] **Task 2.4:** Đặt các obstacles/clutter
-  - TrashCans, Buckets, PalletJacks
-  - Random positions for variety
-
-### Phase 3: Thêm Actors (1-2 ngày)
-
-- [ ] **Task 3.1:** Thêm Actor 1 (warehouse worker)
-  - Trajectory: Zone A → Zone B → Outbound → Zone A
-
-- [ ] **Task 3.2:** Thêm Actor 2 (forklift path)
-  - Trajectory: Inbound → Zone B → Inbound
-
-- [ ] **Task 3.3:** Thêm Actor 3 (moving cart)
-  - Trajectory: Along secondary aisle
-
-### Phase 4: Launch File & Testing (1-2 ngày)
-
-- [ ] **Task 4.1:** Tạo `turtlebot3_large_warehouse.launch.py`
-  - Copy và modify từ existing launch
-
-- [ ] **Task 4.2:** Test world loads correctly
-  - Robot spawns
-  - All models visible
-  - Actors moving
-
-- [ ] **Task 4.3:** Create waypoints config file
-  - `large_warehouse_waypoints.yaml`
-
-### Phase 5: SLAM & Map Generation (1-2 ngày)
-
-- [ ] **Task 5.1:** Run SLAM trong large warehouse
-- [ ] **Task 5.2:** Save map files
-- [ ] **Task 5.3:** Validate map quality
-
----
-
-## 9. Technical Notes
-
-### 9.1. Gazebo Harmonic Compatibility
-
-```xml
-<!-- World file header for Gazebo Harmonic -->
-<?xml version='1.0' encoding='utf-8'?>
-<sdf version="1.8">  <!-- Use SDF 1.8 for Harmonic -->
-  <world name="large_warehouse">
-    <!-- Physics config -->
-    <physics name="default_physics" type="ode">
+    <physics type='ode'>
       <max_step_size>0.001</max_step_size>
       <real_time_factor>1</real_time_factor>
       <real_time_update_rate>1000</real_time_update_rate>
     </physics>
     
-    <!-- Required plugins for ros_gz_bridge -->
+    <!-- Gazebo Harmonic Plugins -->
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
-    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors"/>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
     
-    <!-- World content -->
-  </world>
-</sdf>
+    <scene>
+      <ambient>1 1 1 1</ambient>
+      <background>0.3 0.7 0.9 1</background>
+      <shadows>0</shadows>
+      <grid>false</grid>
+    </scene>
+    
+    <!-- Content follows... -->
 ```
 
-### 9.2. Model URI Resolution
-
-```
-# Model paths sẽ được resolve theo thứ tự:
-1. model://model_name  → GZ_SIM_RESOURCE_PATH
-2. file:///absolute/path/to/model
-3. Relative path từ world file location
-```
-
-### 9.3. Actor Animation Notes
+### 5.2. Models với Updated URIs
 
 ```xml
-<!-- Gazebo Harmonic actor syntax -->
-<actor name="my_actor">
-  <!-- For simple box/cylinder actors (no mesh needed) -->
-  <link name="link">
-    <visual name="visual">
-      <geometry><box><size>0.5 0.5 1.8</size></box></geometry>
-    </visual>
-  </link>
-  
-  <plugin filename="gz-sim-actor-system" name="gz::sim::systems::Actor">
-    <animation_name>walking</animation_name>
-    <loop>true</loop>
-    <trajectory>
-      <waypoint><time>0</time><pose>0 0 0 0 0 0</pose></waypoint>
-      <waypoint><time>10</time><pose>10 0 0 0 0 0</pose></waypoint>
-    </trajectory>
-  </plugin>
-</actor>
+    <!-- Light -->
+    <light type="directional" name="sun">
+      <cast_shadows>0</cast_shadows>
+      <pose>-5 -3 10 0 0 0</pose>
+      <diffuse>1 1 1 1</diffuse>
+      <specular>1 1 1 1</specular>
+      <direction>0 0 -1</direction>
+    </light>
+
+    <!-- Ground Plane -->
+    <model name='ground_plane'>
+      <static>true</static>
+      <link name='link'>
+        <collision name='collision'>
+          <geometry>
+            <plane>
+              <normal>0.0 0.0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name='visual'>
+          <geometry>
+            <plane>
+              <normal>0.0 0.0 1</normal>
+              <size>100 100</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Warehouse Base Structure -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/MovAi/models/Warehouse</uri>
+      <name>warehouse</name>
+      <pose>0 0 -0.09 0 0 0</pose>
+    </include>
+
+    <!-- Charging Station (KEEP) -->
+    <include>
+      <uri>https://fuel.gazebosim.org/1.0/MovAi/models/Tugbot-charging-station</uri>
+      <name>charging_station</name>
+      <pose>14.7 -10.6 -0.04 0 0 0</pose>
+    </include>
+
+    <!-- NOTE: Tugbot REMOVED - TurtleBot3 will be spawned via launch file -->
+
+    <!-- Shelves and other objects... (with updated URIs) -->
+```
+
+### 5.3. Walking Actors
+
+```xml
+    <!-- Walking Actor 1: Main aisle patrol -->
+    <actor name="warehouse_worker_1">
+      <skin>
+        <filename>model://Walking_actor/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walking">
+        <filename>model://Walking_actor/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>0.0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walking">
+          <!-- Rectangular path around central shelves -->
+          <waypoint>
+            <time>0</time>
+            <pose>-4.0 -1.0 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>10</time>
+            <pose>5.5 -1.0 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>12</time>
+            <pose>5.5 -1.0 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>22</time>
+            <pose>5.5 8.5 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>5.5 8.5 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>34</time>
+            <pose>-4.0 8.5 0 0 0 3.14</pose>
+          </waypoint>
+          <waypoint>
+            <time>36</time>
+            <pose>-4.0 8.5 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>46</time>
+            <pose>-4.0 -1.0 0 0 0 -1.57</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
+
+    <!-- Walking Actor 2: Near charging station area -->
+    <actor name="warehouse_worker_2">
+      <skin>
+        <filename>model://Walking_actor/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+      </skin>
+      <animation name="walking">
+        <filename>model://Walking_actor/meshes/walk.dae</filename>
+        <scale>1.0</scale>
+        <interpolate_x>true</interpolate_x>
+      </animation>
+      <script>
+        <loop>true</loop>
+        <delay_start>5.0</delay_start>
+        <auto_start>true</auto_start>
+        <trajectory id="0" type="walking">
+          <!-- Patrol near charging station and lower shelves -->
+          <waypoint>
+            <time>0</time>
+            <pose>10.0 -10.0 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>8</time>
+            <pose>10.0 -18.0 0 0 0 -1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>16</time>
+            <pose>13.0 -18.0 0 0 0 0</pose>
+          </waypoint>
+          <waypoint>
+            <time>24</time>
+            <pose>13.0 -10.0 0 0 0 1.57</pose>
+          </waypoint>
+          <waypoint>
+            <time>32</time>
+            <pose>10.0 -10.0 0 0 0 3.14</pose>
+          </waypoint>
+        </trajectory>
+      </script>
+    </actor>
 ```
 
 ---
 
-## 10. Tài liệu Tham khảo
+## 6. TurtleBot3 Spawn Position
 
-- [Gazebo Harmonic World Tutorial](https://gazebosim.org/docs/harmonic/building_robot)
-- [Gazebo Actor Documentation](https://gazebosim.org/api/sim/8/actor.html)
-- [AWS RoboMaker Warehouse World](https://github.com/aws-robotics/aws-robomaker-small-warehouse-world)
-- [Nav2 Waypoint Following](https://navigation.ros.org/tutorials/docs/navigation2_with_gps.html)
+### 6.1. Recommended Spawn Positions
+
+| Position Name | Coordinates (x, y, z) | Description |
+|---------------|----------------------|-------------|
+| **Default** | `(0, 0, 0.1)` | Center of warehouse |
+| **Near Charging** | `(12.0, -10.6, 0.1)` | Gần trạm sạc |
+| **Inbound Area** | `(0, 12, 0.1)` | Khu vực nhận hàng |
+| **Central Aisle** | `(0.5, 4, 0.1)` | Giữa hành lang chính |
+
+### 6.2. Launch File Arguments
+
+```python
+# Trong launch file
+x_pose = LaunchConfiguration('x_pose', default='0.0')
+y_pose = LaunchConfiguration('y_pose', default='0.0')
+z_pose = LaunchConfiguration('z_pose', default='0.1')
+```
+
+---
+
+## 7. Points of Interest (POI) cho Navigation
+
+### 7.1. Key Waypoints
+
+```yaml
+waypoints:
+  # Charging Station
+  charging_station:
+    position: [14.7, -10.6, 0]
+    type: charging
+    description: "Trạm sạc Tugbot (compatible với TurtleBot3)"
+
+  # Shelf Areas - Left Side
+  shelf_area_left_1:
+    position: [-4.4, 0, 0]
+    type: pickup
+    shelf_ids: [shelf, shelf_0, shelf_1, shelf_2]
+    
+  # Shelf Areas - Right Side
+  shelf_area_right_1:
+    position: [5.6, 0, 0]
+    type: pickup
+    shelf_ids: [shelf_5, shelf_6, shelf_3, shelf_4]
+
+  # Shelf Big Area - Bottom
+  shelf_big_area_bottom:
+    position: [0, -13, 0]
+    type: storage
+    shelf_ids: [shelf_big_0, shelf_big_2, shelf_big_3, shelf_big_4]
+
+  # Pallet Area - Top
+  pallet_pickup_area:
+    position: [4.4, 13, 0]
+    type: pallet_pickup
+    
+  # Cart Area
+  cart_area:
+    position: [-5.7, 15, 0]
+    type: cart_pickup
+
+  # Intersection Points
+  intersection_center:
+    position: [0.5, 4, 0]
+    type: intersection
+    
+  intersection_bottom:
+    position: [0.5, -8, 0]
+    type: intersection
+```
+
+### 7.2. Navigation Zones
+
+```yaml
+zones:
+  zone_storage_left:
+    bounds: [[-6, -2], [-2, 10]]  # [x_min, x_max], [y_min, y_max]
+    type: storage
+    
+  zone_storage_right:
+    bounds: [[4, 7], [-2, 10]]
+    type: storage
+    
+  zone_charging:
+    bounds: [[12, 16], [-12, -8]]
+    type: charging
+    
+  zone_loading:
+    bounds: [[-8, 6], [12, 17]]
+    type: loading
+    
+  zone_storage_bottom:
+    bounds: [[-10, 8], [-15, -11]]
+    type: bulk_storage
+```
+
+---
+
+## 8. Implementation Checklist
+
+### Phase 1: Chuẩn bị Files (1 ngày)
+
+- [ ] **Task 1.1:** Copy `Walking actor` folder sang `warehouse_assets/models/Walking_actor/`
+  ```bash
+  cp -r "AGV_2/implements_detail/Walking actor" \
+        "AGV_2/src/turtlebot3_simulations/turtlebot3_warehouse_sim/warehouse_assets/models/Walking_actor"
+  ```
+
+- [ ] **Task 1.2:** Tạo `tugbot_warehouse.world` với các modifications
+  - Update SDF version to 1.8
+  - Update plugin names
+  - Update Fuel URIs
+  - Remove Tugbot model
+  - Add Walking actors
+
+### Phase 2: Launch File (0.5 ngày)
+
+- [ ] **Task 2.1:** Tạo `turtlebot3_tugbot_warehouse.launch.py`
+  - Copy từ `turtlebot3_warehouse_world.launch.py`
+  - Update world file path
+  - Update model paths
+  - Add TurtleBot3 spawn
+
+### Phase 3: Testing (1 ngày)
+
+- [ ] **Task 3.1:** Test world loads trong Gazebo Harmonic
+  ```bash
+  gz sim tugbot_warehouse.world
+  ```
+
+- [ ] **Task 3.2:** Test với TurtleBot3 spawn
+  ```bash
+  ros2 launch turtlebot3_warehouse_sim turtlebot3_tugbot_warehouse.launch.py
+  ```
+
+- [ ] **Task 3.3:** Test Walking actors hoạt động
+  - Verify trajectory paths
+  - Check collision detection
+
+- [ ] **Task 3.4:** Test teleop và sensor data
+  ```bash
+  ros2 run turtlebot3_teleop teleop_keyboard
+  ros2 topic echo /scan
+  ```
+
+### Phase 4: SLAM & Map (1 ngày)
+
+- [ ] **Task 4.1:** Run SLAM trong tugbot_warehouse
+- [ ] **Task 4.2:** Save map
+- [ ] **Task 4.3:** Configure Nav2 waypoints
+
+---
+
+## 9. Potential Issues & Solutions
+
+### 9.1. Fuel Model Download
+
+**Issue:** Models từ Fuel có thể không tự động download.
+
+**Solution:**
+```bash
+# Pre-download models
+gz fuel download -u "https://fuel.gazebosim.org/1.0/MovAi/models/Warehouse"
+gz fuel download -u "https://fuel.gazebosim.org/1.0/MovAi/models/Tugbot-charging-station"
+gz fuel download -u "https://fuel.gazebosim.org/1.0/MovAi/models/shelf"
+gz fuel download -u "https://fuel.gazebosim.org/1.0/MovAi/models/shelf_big"
+# ... etc
+```
+
+### 9.2. Walking Actor Mesh Path
+
+**Issue:** `model://Walking_actor` có thể không resolve đúng.
+
+**Solution:** Ensure `GZ_SIM_RESOURCE_PATH` includes model directory:
+```bash
+export GZ_SIM_RESOURCE_PATH=$GZ_SIM_RESOURCE_PATH:/path/to/warehouse_assets/models
+```
+
+### 9.3. TurtleBot3 Collision với Warehouse
+
+**Issue:** Robot có thể spawn inside obstacles.
+
+**Solution:** Use safe spawn position `(0, 0, 0.1)` hoặc `(12, -10.6, 0.1)` (near charging station).
+
+---
+
+## 10. So sánh Layout
+
+### 10.1. Tugbot Warehouse vs Original Plan
+
+| Feature | Original Plan (30x40m) | Tugbot Warehouse (~35x50m) |
+|---------|------------------------|----------------------------|
+| Size | 30m x 40m | ~35m x 50m (larger) |
+| Shelves | 24 custom placed | 16 (11 small + 5 big) |
+| Charging Station | 3 custom | 1 (Tugbot-charging-station) |
+| Actors | 3 custom | 2 Walking actors |
+| Complexity | Medium | Medium |
+| Setup Time | 5-7 days | 2-3 days |
+
+### 10.2. Advantages của Tugbot Warehouse
+
+1. ✅ **Tiết kiệm thời gian:** Không cần tạo world từ đầu
+2. ✅ **Tested models:** Các models từ Fuel đã được verify
+3. ✅ **Realistic layout:** Warehouse layout thực tế
+4. ✅ **Charging station:** Có sẵn, phù hợp use case
+5. ✅ **Flexible:** Dễ thêm/bớt objects
+
+### 10.3. Limitations
+
+1. ⚠️ **Chỉ 1 charging station:** Có thể thêm nếu cần
+2. ⚠️ **Fixed warehouse structure:** Không thể thay đổi building
+3. ⚠️ **Fuel dependency:** Cần internet để download models lần đầu
+
+---
+
+## 11. References
+
+- [MovAi Tugbot Warehouse - Gazebo Fuel](https://app.gazebosim.org/MovAi/worlds/tugbot_warehouse)
+- [Walking Actor - Gazebo Fuel](https://app.gazebosim.org/OpenRobotics/models/Walking%20actor)
+- [Gazebo Harmonic Migration Guide](https://gazebosim.org/docs/harmonic/migration)
+- [SDF 1.8 Specification](http://sdformat.org/spec?ver=1.8)
 
 ---
 
@@ -709,5 +732,8 @@ AGV_2/src/turtlebot3_simulations/turtlebot3_warehouse_sim/
 
 | Date | Version | Changes |
 |------|---------|---------|
-| 2025-01-XX | 0.1 | Initial design document |
-
+| 2024-XX-XX | 0.1 | Initial design (custom 30x40m world) |
+| 2024-XX-XX | 0.2 | **Changed to Tugbot Warehouse approach** |
+|  |  | - Use existing world from Gazebo Fuel |
+|  |  | - Add Walking actor support |
+|  |  | - Update for Gazebo Harmonic compatibility |
