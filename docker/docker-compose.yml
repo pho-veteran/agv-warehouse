@@ -1,0 +1,55 @@
+# AGV Simulation Docker Compose
+# ROS 2 Jazzy + Gazebo Harmonic
+# Single container setup (like AGV_1 and ROBOTIS)
+
+services:
+  agv_sim:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agv_simulation
+    
+    # Enable GUI (X11 forwarding)
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - TURTLEBOT3_MODEL=${TURTLEBOT3_MODEL:-waffle_pi}
+    
+    volumes:
+      # X11 socket for GUI
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # Source code (for development)
+      - ../src:/ros2_ws/src:rw
+      # Config directory
+      - ../config:/ros2_ws/config:rw
+      # Data directory
+      - ../data:/ros2_ws/data:rw
+      # Maps directory
+      - ../data/maps:/ros2_ws/maps:rw
+    
+    # Network mode for ROS 2 communication
+    network_mode: host
+    
+    # NVIDIA GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, graphics, display]
+    
+    # Interactive mode
+    stdin_open: true
+    tty: true
+    
+    # Privileged mode for hardware access
+    privileged: true
+    
+    # Runtime for NVIDIA
+    runtime: nvidia
+    
+    command: bash

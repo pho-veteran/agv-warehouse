@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ROS2
+install/
+log/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+.dockerignore
+
+# Environment variables
+.env
+.env.local
+
+# Data directories (maps, logs, bags)
+data/maps/*.pgm
+data/maps/*.yaml
+data/logs/*
+data/bags/*
+!data/maps/.gitkeep
+!data/logs/.gitkeep
+!data/bags/.gitkeep
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Compiled files
+*.o
+*.a
+*.so
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# ROS2 specific
+.ros/
+
+# Gazebo
+.gazebo/
+
+# Build artifacts
+*.build
+*.devel
+

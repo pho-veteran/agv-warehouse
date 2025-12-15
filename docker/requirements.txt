@@ -1,0 +1,8 @@
+transforms3d
+numpy
+opencv-python
+pyyaml
+websockets
+pytest
+matplotlib
+
