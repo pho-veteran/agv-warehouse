@@ -1,0 +1,2 @@
+# Keep this directory for exploration logs
+# Logs are created when running: ./scripts/launch_large_warehouse.sh --slam --auto-explore --log

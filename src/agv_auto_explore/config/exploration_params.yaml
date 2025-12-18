@@ -1,0 +1,30 @@
+exploration_node:
+  ros__parameters:
+    # Use simulation time
+    use_sim_time: true
+    
+    # ==========================================================================
+    # Tugbot Industrial AGV Parameters
+    # Optimized for large warehouse environments
+    # Tugbot specs: 0.7m long, 0.56m wide, ~46kg
+    # ==========================================================================
+    
+    # DBSCAN clustering - Larger tolerance for warehouse scale
+    cluster_tolerance: 0.5        # meters - larger for warehouse frontiers
+    min_frontier_size: 8          # minimum points to form a cluster
+    
+    # Safety margins - Tugbot is larger than TurtleBot3
+    obstacle_clearance: 0.5       # meters - increased clearance for safety
+    min_goal_distance: 1.2        # meters - increased to avoid getting stuck around blocks
+    
+    # Blacklist parameters - Warehouse scale
+    blacklist_radius: 1.2         # meters - slightly larger for warehouse
+    max_blacklist_size: 25        # auto-clear faster in large space
+    
+    # Adaptive exploration (late-stage)
+    min_frontier_size_final: 3    # Find small frontiers at end
+    adaptive_threshold: 0.70      # Adapt earlier for large warehouse
+    
+    # Information gain parameters
+    information_gain_radius: 2.0  # meters - increased for better frontier selection
+    scale_radius_with_map: true   # Scale radius based on map size

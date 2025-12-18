@@ -219,8 +219,9 @@
     </include>
 
     <!-- ==================== WALKING ACTORS (Dynamic Obstacles) ==================== -->
+    <!-- DISABLED: Walking actor was blocking robot navigation paths -->
     
-    <!-- Actor 1: Patrol around central storage area -->
+    <!-- Actor 1: Patrol around central storage area
     <actor name="warehouse_worker_1">
       <pose>-4.0 -1.0 1.0 0 0 0</pose>
       <skin>
@@ -237,7 +238,6 @@
         <delay_start>0.0</delay_start>
         <auto_start>true</auto_start>
         <trajectory id="0" type="walking">
-          <!-- Rectangular path around central shelves area -->
           <waypoint>
             <time>0</time>
             <pose>-4.0 -1.0 1.0 0 0 0</pose>
@@ -273,6 +273,7 @@
         </trajectory>
       </script>
     </actor>
+    -->
 
   </world>
 </sdf>

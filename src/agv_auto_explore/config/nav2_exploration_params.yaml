@@ -1,0 +1,257 @@
+# Nav2 parameters for exploration - Tuned for Large Warehouse
+# Based on Autonomous-Turtlebot with warehouse-specific optimizations
+# 
+# TUNING LOG:
+# v3.0 - Industrial AGV Scale Simulation
+# 
+# WAREHOUSE ANALYSIS (tugbot_warehouse.world):
+# - Ground plane: 100m x 100m
+# - Active area: ~35m x 50m (shelves from X:-9.3 to 14.7, Y:-24.3 to 15.3)
+# - Aisle width: ~3m between shelves
+# - Obstacles: 16 shelves, 5 pallet boxes, 1 cart, 1 walking actor
+#
+# SCALE FACTOR: 3x (TurtleBot3 → Industrial AGV simulation)
+# - Speed: 0.26 → 0.78 m/s (realistic warehouse AGV speed)
+# - Lidar effective range: 3.5 → 10.5m (scaled perception)
+# - Local costmap: 5 → 10m (larger lookahead for higher speed)
+# - Exploration time: ~60min → ~20min (3x faster coverage)
+#
+# Key changes from v2.0:
+# - 3x speed increase for realistic warehouse AGV behavior
+# - Larger costmaps for higher speed navigation
+# - Adjusted tolerances and timeouts for scaled parameters
+# - Increased acceleration limits for responsive control
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_link
+    odom_topic: /odom
+    bt_loop_duration: 10
+    default_server_timeout: 30        # TUNED: Increased from 20s for long paths
+    default_bt_xml_filename: "navigate_w_replanning_and_recovery.xml"  # Enable recovery behaviors
+    plugin_lib_names:
+    - nav2_compute_path_to_pose_action_bt_node
+    - nav2_compute_path_through_poses_action_bt_node
+    - nav2_follow_path_action_bt_node
+    - nav2_back_up_action_bt_node
+    - nav2_spin_action_bt_node
+    - nav2_wait_action_bt_node
+    - nav2_clear_costmap_service_bt_node
+    - nav2_is_stuck_condition_bt_node
+    - nav2_goal_reached_condition_bt_node
+    - nav2_goal_updated_condition_bt_node
+    - nav2_initial_pose_received_condition_bt_node
+    - nav2_reinitialize_global_localization_service_bt_node
+    - nav2_rate_controller_bt_node
+    - nav2_distance_controller_bt_node
+    - nav2_speed_controller_bt_node
+    - nav2_truncate_path_action_bt_node
+    - nav2_goal_updater_node_bt_node
+    - nav2_recovery_node_bt_node
+    - nav2_pipeline_sequence_bt_node
+    - nav2_round_robin_node_bt_node
+    - nav2_transform_available_condition_bt_node
+    - nav2_time_expired_condition_bt_node
+    - nav2_distance_traveled_condition_bt_node
+    - nav2_single_trigger_bt_node
+    - nav2_is_battery_low_condition_bt_node
+    - nav2_navigate_through_poses_action_bt_node
+    - nav2_navigate_to_pose_action_bt_node
+    - nav2_remove_passed_goals_action_bt_node
+    - nav2_planner_selector_bt_node
+    - nav2_controller_selector_bt_node
+    - nav2_goal_checker_selector_bt_node
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 20.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugin: "goal_checker"
+    controller_plugins: ["FollowPath"]
+    # Progress checker parameters - SCALED for industrial AGV
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.8   # SCALED 3x: 0.4 → 0.8m (faster robot moves more)
+      movement_time_allowance: 10.0   # REDUCED: faster robot should progress quicker
+    # Goal checker parameters - SCALED for industrial AGV
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.3          # SCALED: slightly larger for higher speed
+      yaw_goal_tolerance: 0.4         # SCALED: slightly larger for higher speed
+      stateful: True
+    # DWB parameters - SCALED 3x for industrial AGV simulation
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+      min_vel_x: 0.0
+      min_vel_y: 0.0
+      max_vel_x: 0.78                 # SCALED 3x: 0.26 → 0.78 m/s (industrial AGV speed)
+      max_vel_y: 0.0
+      max_vel_theta: 2.0              # SCALED 2.5x: 0.8 → 2.0 rad/s (faster turning)
+      min_speed_xy: 0.0
+      max_speed_xy: 0.78              # SCALED 3x: match max_vel_x
+      min_speed_theta: 0.0
+      acc_lim_x: 4.0                  # SCALED: higher acceleration for responsive control
+      acc_lim_y: 0.0
+      acc_lim_theta: 5.0              # SCALED: higher angular acceleration
+      decel_lim_x: -4.0               # SCALED: match acc_lim_x
+      decel_lim_y: 0.0
+      decel_lim_theta: -5.0           # SCALED: match acc_lim_theta
+      vx_samples: 20
+      vy_samples: 5
+      vtheta_samples: 20
+      sim_time: 2.5                   # INCREASED: longer lookahead for higher speed
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.3          # SCALED: match goal_checker
+      trans_stopped_velocity: 0.3     # SCALED: higher threshold for faster robot
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 0.05        # INCREASED: more obstacle avoidance at higher speed
+      PathAlign.scale: 35.0
+      PathAlign.forward_point_distance: 0.2  # SCALED: look further ahead
+      GoalAlign.scale: 26.0
+      GoalAlign.forward_point_distance: 0.2  # SCALED: look further ahead
+      PathDist.scale: 35.0
+      GoalDist.scale: 26.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 10.0          # SCALED: faster updates for higher speed
+      publish_frequency: 4.0          # SCALED: faster publish for responsiveness
+      global_frame: odom
+      robot_base_frame: base_link
+      use_sim_time: True
+      rolling_window: true
+      width: 10                       # SCALED 2x: 0.78 * 10 * 2 = 15.6m → use 10m
+      height: 10                      # SCALED 2x: larger lookahead for higher speed
+      resolution: 0.05
+      robot_radius: 0.22
+      plugins: ["obstacle_layer", "voxel_layer", "inflation_layer"]
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.5      # ADJUSTED: slightly less aggressive for larger costmap
+        inflation_radius: 0.6         # SCALED: robot_radius + safety + speed*reaction_time
+                                      # 0.22 + 0.1 + 0.78*0.3 = 0.55 → 0.6m
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+      voxel_layer:
+        plugin: "nav2_costmap_2d::VoxelLayer"
+        enabled: True
+        publish_voxel_map: True
+        origin_z: 0.0
+        z_resolution: 0.05
+        z_voxels: 16
+        max_obstacle_height: 2.0
+        mark_threshold: 0
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 8.0     # SCALED ~2.5x: 3.0 → 8.0m (extended perception)
+          raytrace_min_range: 0.0
+          obstacle_max_range: 6.0     # SCALED ~2.5x: 2.5 → 6.0m
+          obstacle_min_range: 0.0
+      static_layer:
+        map_subscribe_transient_local: True
+      always_send_full_costmap: True
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 2.0           # SCALED: faster updates for exploration
+      publish_frequency: 1.5          # SCALED: faster publish
+      global_frame: map
+      robot_base_frame: base_link
+      use_sim_time: True
+      robot_radius: 0.22
+      resolution: 0.05
+      track_unknown_space: true       # EXPLORATION: Critical for frontier detection!
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 8.0     # SCALED: extended perception range
+          obstacle_max_range: 6.0     # SCALED: extended obstacle detection
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 2.5      # ADJUSTED: match local costmap
+        inflation_radius: 0.6         # SCALED: match local costmap
+      always_send_full_costmap: True
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.3                  # TUNED: Tighter from 0.5 for precise navigation
+      use_astar: true                 # TUNED: Enable A* for better paths in warehouse
+      allow_unknown: true             # EXPLORATION: Allow planning through unknown space
+
+# Using behavior_server instead of recoveries_server (ROS2 Jazzy)
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.1
+    use_sim_time: true
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 2.0           # SCALED 2x: faster rotation for recovery
+    min_rotational_vel: 0.6           # SCALED: higher minimum
+    rotational_acc_lim: 5.0           # SCALED: match controller
+
+waypoint_follower:
+  ros__parameters:
+    use_sim_time: True
+    loop_rate: 20
+    stop_on_failure: false
+    waypoint_task_executor_plugin: "wait_at_waypoint"   
+    wait_at_waypoint:
+      plugin: "nav2_waypoint_follower::WaitAtWaypoint"
+      enabled: True
+      waypoint_pause_duration: 200

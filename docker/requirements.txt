@@ -1,8 +1,9 @@
 transforms3d
-numpy
+numpy<2.0.0
 opencv-python
 pyyaml
 websockets
 pytest
 matplotlib
-
+scikit-learn
+scipy

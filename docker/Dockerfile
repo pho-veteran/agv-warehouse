@@ -33,13 +33,9 @@ RUN apt-get update && apt-get install -y \
     vim \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-# Note: numpy, pyyaml, pytest, matplotlib are already installed via apt
-# Use --ignore-installed to avoid conflicts with apt-installed packages
-RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed \
-    transforms3d \
-    opencv-python \
-    websockets
+# Install Python dependencies from requirements.txt
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements.txt
 
 # Create workspace
 WORKDIR /ros2_ws

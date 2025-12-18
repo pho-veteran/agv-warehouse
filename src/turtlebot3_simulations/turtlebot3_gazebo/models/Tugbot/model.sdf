@@ -1,0 +1,362 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<sdf version="1.8">
+  <model name="tugbot">
+    <pose>0 0 0 0 0 0</pose>
+    <self_collide>false</self_collide>
+    <static>false</static>
+
+    <!-- BASE FOOTPRINT (same as TurtleBot3) -->
+    <link name="base_footprint"/>
+
+    <!-- BASE LINK -->
+    <link name="base_link">
+      <inertial>
+        <pose>-0.1 0 0.1 0 0 0</pose>
+        <mass>46.2</mass>
+        <inertia>
+          <ixx>1.55925</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>1.55925</iyy>
+          <iyz>0</iyz>
+          <izz>1.55925</izz>
+        </inertia>
+      </inertial>
+      <collision name="base_link_collision">
+        <geometry>
+          <mesh>
+            <uri>meshes/base/tugbot_simp.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name="base_link_visual">
+        <geometry>
+          <mesh>
+            <uri>meshes/base/tugbot_simp.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <!-- IMU LINK (same structure as TurtleBot3) -->
+    <link name="imu_link">
+      <sensor name="tugbot_imu" type="imu">
+        <always_on>true</always_on>
+        <update_rate>200</update_rate>
+        <topic>imu</topic>
+        <imu>
+          <angular_velocity>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>2e-4</stddev></noise></z>
+          </angular_velocity>
+          <linear_acceleration>
+            <x><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></x>
+            <y><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></y>
+            <z><noise type="gaussian"><mean>0.0</mean><stddev>1.7e-2</stddev></noise></z>
+          </linear_acceleration>
+        </imu>
+      </sensor>
+    </link>
+
+    <!-- LIDAR LINK (same structure as TurtleBot3 base_scan) -->
+    <link name="base_scan">
+      <pose>0.221 0 0.1404 0 0 0</pose>
+      <inertial>
+        <mass>0.114</mass>
+        <inertia>
+          <ixx>0.001</ixx>
+          <ixy>0.000</ixy>
+          <ixz>0.000</ixz>
+          <iyy>0.001</iyy>
+          <iyz>0.000</iyz>
+          <izz>0.001</izz>
+        </inertia>
+      </inertial>
+      <sensor name="hls_lfcd_lds" type="gpu_lidar">
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <update_rate>10</update_rate>
+        <topic>scan</topic>
+        <gz_frame_id>base_scan</gz_frame_id>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>360</samples>
+              <resolution>1.0</resolution>
+              <min_angle>0.0</min_angle>
+              <max_angle>6.28</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.60</min>
+            <max>10.0</max>
+            <resolution>0.015</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </ray>
+      </sensor>
+    </link>
+
+    <!-- WHEELS -->
+    <link name="wheel_left_link">
+      <pose>0 0.257 0.195 -1.5708 0 0</pose>
+      <inertial>
+        <mass>2.0</mass>
+        <inertia>
+          <ixx>0.019</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.019</iyy>
+          <iyz>0</iyz>
+          <izz>0.038</izz>
+        </inertia>
+      </inertial>
+      <collision name="wheel_left_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.195</radius>
+            <length>0.05</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>100000</mu>
+              <mu2>100000</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <soft_cfm>0</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>1e+5</kp>
+              <kd>1</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+      <visual name="wheel_left_visual">
+        <pose>0 0 -0.03 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.98 0.98 1.0</scale>
+            <uri>meshes/wheel/wheel.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <link name="wheel_right_link">
+      <pose>0 -0.257 0.195 -1.5708 0 0</pose>
+      <inertial>
+        <mass>2.0</mass>
+        <inertia>
+          <ixx>0.019</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.019</iyy>
+          <iyz>0</iyz>
+          <izz>0.038</izz>
+        </inertia>
+      </inertial>
+      <collision name="wheel_right_collision">
+        <geometry>
+          <cylinder>
+            <radius>0.195</radius>
+            <length>0.05</length>
+          </cylinder>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>100000</mu>
+              <mu2>100000</mu2>
+              <fdir1>0 0 0</fdir1>
+              <slip1>0.0</slip1>
+              <slip2>0.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <soft_cfm>0</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>1e+5</kp>
+              <kd>1</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+      <visual name="wheel_right_visual">
+        <pose>0 0 -0.03 0 0 0</pose>
+        <geometry>
+          <mesh>
+            <scale>0.98 0.98 1.0</scale>
+            <uri>meshes/wheel/wheel.dae</uri>
+          </mesh>
+        </geometry>
+      </visual>
+    </link>
+
+    <!-- CASTER WHEELS -->
+    <link name="caster_front_link">
+      <pose>0.145 0 0.035 0 0 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia>
+          <ixx>0.00001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00001</iyy>
+          <iyz>0</iyz>
+          <izz>0.00001</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <sphere>
+            <radius>0.025</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <contact>
+            <ode>
+              <soft_cfm>0</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>1e+5</kp>
+              <kd>1</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <link name="caster_back_link">
+      <pose>-0.225 0 0.035 0 0 0</pose>
+      <inertial>
+        <mass>0.1</mass>
+        <inertia>
+          <ixx>0.00001</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00001</iyy>
+          <iyz>0</iyz>
+          <izz>0.00001</izz>
+        </inertia>
+      </inertial>
+      <collision name="collision">
+        <geometry>
+          <sphere>
+            <radius>0.035</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <contact>
+            <ode>
+              <soft_cfm>0</soft_cfm>
+              <soft_erp>0.2</soft_erp>
+              <kp>1e+5</kp>
+              <kd>1</kd>
+              <max_vel>0.01</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+    </link>
+
+    <!-- JOINTS (same structure as TurtleBot3) -->
+    <joint name="base_joint" type="fixed">
+      <parent>base_footprint</parent>
+      <child>base_link</child>
+      <pose>0 0 0 0 0 0</pose>
+    </joint>
+
+    <joint name="imu_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>imu_link</child>
+      <pose>0.14 0.02 0.25 0 0 0</pose>
+    </joint>
+
+    <joint name="lidar_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>base_scan</child>
+    </joint>
+
+    <joint name="wheel_left_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_left_link</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <effort>20</effort>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="wheel_right_joint" type="revolute">
+      <parent>base_link</parent>
+      <child>wheel_right_link</child>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <effort>20</effort>
+        </limit>
+      </axis>
+    </joint>
+
+    <joint name="caster_front_joint" type="ball">
+      <parent>base_link</parent>
+      <child>caster_front_link</child>
+    </joint>
+
+    <joint name="caster_back_joint" type="ball">
+      <parent>base_link</parent>
+      <child>caster_back_link</child>
+    </joint>
+
+    <!-- DIFF DRIVE PLUGIN (same as TurtleBot3) -->
+    <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
+      <!-- wheels -->
+      <left_joint>wheel_left_joint</left_joint>
+      <right_joint>wheel_right_joint</right_joint>
+
+      <!-- kinematics -->
+      <wheel_separation>0.514</wheel_separation>
+      <wheel_radius>0.195</wheel_radius>
+
+      <!-- limits -->
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+
+      <topic>cmd_vel</topic>
+
+      <odom_topic>odom</odom_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_footprint</child_frame_id>
+      <odom_publisher_frequency>30</odom_publisher_frequency>
+
+      <tf_topic>/tf</tf_topic>
+    </plugin>
+
+    <!-- JOINT STATE PUBLISHER (same as TurtleBot3) -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>joint_states</topic>
+      <joint_name>wheel_left_joint</joint_name>
+      <joint_name>wheel_right_joint</joint_name>
+    </plugin>
+
+  </model>
+</sdf>
