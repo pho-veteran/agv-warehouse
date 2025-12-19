@@ -1,0 +1,45 @@
+# Ultra-minimal set: dock areas + charging only
+
+stations:
+  # Charging station
+  charging_station:
+    x: 13.157
+    y: -30.282
+    yaw: 0.0
+    type: charger
+    description: AGV charging station
+
+  # Dock areas for receiving/shipping
+  dock_in_1:
+    x: -0.143 
+    y: -20.679
+    yaw: 0.0
+    type: dock
+    description: Incoming goods receiving dock 1
+
+  dock_in_2:
+    x: -3.756 
+    y: -6.553 
+    yaw: 0.0
+    type: dock
+    description: Incoming goods receiving dock 2
+
+  dock_out:
+    x: -0.181
+    y: -43.405
+    yaw: -1.57
+    type: dock
+    description: Outgoing goods shipping dock
+
+# Metadata
+metadata:
+  created: '2025-12-19T18:35:00'
+  purpose: 'Dock-to-dock transport'
+  map_file: warehouse_tugbot.yaml
+  frame_id: map
+  total_stations: 4
+  station_types:
+    charger: 1
+    dock: 3
+  coordinate_system: 'map'
+  note: 'All station coordinates determined using 2D Pose Estimate in RViz2. Ready for Phase 4 transport demo.'

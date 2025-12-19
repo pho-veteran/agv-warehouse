@@ -265,3 +265,10 @@ Sau khi hoàn thành Phase 1, tiếp tục với:
 - Phase 5: Hệ thống hoàn chỉnh
 
 Xem [AGV_Design.md](AGV_Design.md) để biết chi tiết.
+
+# Frequently Used CMD
+
+./scripts/load_map.sh
+./scripts/run_dev.sh clean-build agv_auto_explore
+./scripts/run_dev.sh clean-build agv_transport
+./scripts/launch_large_warehouse.sh --tugbot --location entrance --slam --auto-explore
