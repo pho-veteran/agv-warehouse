@@ -268,7 +268,19 @@ Xem [AGV_Design.md](AGV_Design.md) để biết chi tiết.
 
 # Frequently Used CMD
 
-./scripts/load_map.sh
 ./scripts/run_dev.sh clean-build agv_auto_explore
 ./scripts/run_dev.sh clean-build agv_transport
+./scripts/run_dev.sh clean-build agv_transport_web
+
 ./scripts/launch_large_warehouse.sh --tugbot --location entrance --slam --auto-explore
+
+./scripts/launch_transport_web_demo.sh
+
+<!-- Transport với CLI -->
+./scripts/launch_transport_demo.sh
+./scripts/send_order.sh dock_in_1 dock_out
+./scripts/send_order.sh dock_out charging_station
+./scripts/send_order.sh dock_in_2 charging_station
+./scripts/send_order.sh --status
+
+./scripts/debug_transport.sh send-nav-goal

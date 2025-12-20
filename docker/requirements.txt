@@ -7,3 +7,13 @@ pytest
 matplotlib
 scikit-learn
 scipy
+
+# FastAPI and web server dependencies for agv_transport_web
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+jinja2==3.1.2
+python-multipart==0.0.6
+aiofiles==23.2.1
+pydantic==2.5.0
+httpx==0.25.2
+hypothesis==6.92.1

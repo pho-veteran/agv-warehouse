@@ -1,0 +1,31 @@
+exploration_node:
+  ros__parameters:
+    # Use simulation time
+    use_sim_time: true
+    
+    # ==========================================================================
+    # TurtleBot3 Waffle Pi Parameters
+    # Based on Autonomous-Turtlebot exploration node
+    # Optimized for small indoor environments (house, office)
+    # Waffle Pi specs: 0.281m long, 0.306m wide, ~1.5kg
+    # ==========================================================================
+    
+    # DBSCAN clustering - Smaller tolerance for TurtleBot3 scale
+    cluster_tolerance: 0.10        # meters - smaller for precise frontier detection
+    min_frontier_size: 5            # minimum points to form a cluster
+    
+    # Safety margins - TurtleBot3 is smaller than Tugbot
+    obstacle_clearance: 0.2         # meters - smaller clearance for compact robot
+    min_goal_distance: 0.3         # meters - minimum distance for a new goal
+    
+    # Blacklist parameters - Smaller scale for indoor environments
+    blacklist_radius: 0.5          # meters - smaller for indoor spaces
+    max_blacklist_size: 50         # larger blacklist for smaller spaces
+    
+    # Adaptive exploration (late-stage)
+    min_frontier_size_final: 3     # Find small frontiers at end
+    adaptive_threshold: 0.80       # Adapt later for smaller environments
+    
+    # Information gain parameters
+    information_gain_radius: 1.0   # meters - smaller radius for indoor exploration
+    scale_radius_with_map: true    # Scale radius based on map size

@@ -4,6 +4,7 @@
 1. [Technology Stack](#part-1-technology-stack)
 2. [Technical Specifications](#part-2-technical-specifications)
 3. [Autonomous Map Exploration System Design](#part-3-autonomous-map-exploration-system-design)
+4. [Transport Task Management System](#part-4-transport-task-management-system)
 
 ---
 
@@ -34,7 +35,7 @@ The AGV project for Smart Warehouse has been built based on the following techno
   - `nav2_planner`: Global path planning (NavfnPlanner with A*)
   - `nav2_controller`: Local path following (DWB Local Planner)
   - `nav2_costmap_2d`: Costmap for obstacle avoidance
-  - `nav2_amcl`: Adaptive Monte Carlo Localization (not used in exploration, only used with static map)
+  - `nav2_amcl`: Adaptive Monte Carlo Localization - used in transport system for static map localization (not used during exploration, which uses Cartographer SLAM)
   - `nav2_bt_navigator`: Behavior Tree Navigator
 - **Cartographer**: Google's SLAM framework for real-time mapping
   - `cartographer_node`: Main node performing SLAM
@@ -148,7 +149,7 @@ At the current stage, the system uses **TurtleBot3 Waffle Pi** as the simulation
 
 ## Part 3: Autonomous Map Exploration System Design
 
-The `agv_auto_explore` package is designed to perform autonomous exploration using **Frontier-based Exploration Algorithm** combined with Nav2 Navigation Stack.
+Our autonomous map exploration system is designed to perform autonomous exploration using **Frontier-based Exploration Algorithm** combined with Nav2 Navigation Stack.
 
 ### 3.1. Overall Workflow
 
@@ -230,7 +231,7 @@ flowchart TD
 
 ### 3.3. Important Configuration Parameters
 
-#### 3.3.1. Exploration Parameters (`exploration_params.yaml`)
+#### 3.3.1. Exploration Parameters
 
 ```yaml
 exploration_node:
@@ -270,7 +271,7 @@ exploration_node:
 
 - **`adaptive_threshold`**: When exploration reaches 70%, reduce `min_frontier_size` to `min_frontier_size_final` to find remaining small frontiers.
 
-#### 3.3.2. Nav2 Exploration Parameters (`nav2_exploration_params.yaml`)
+#### 3.3.2. Nav2 Exploration Parameters
 
 Nav2 parameters optimized for exploration in large warehouse:
 
@@ -319,7 +320,7 @@ GridBased:
 
 - **`sim_time`**: Longer lookahead time (2.5s) to match higher velocity (0.78 m/s).
 
-#### 3.3.3. Cartographer SLAM Parameters (`turtlebot3_slam_tuned.lua`)
+#### 3.3.3. Cartographer SLAM Parameters
 
 SLAM parameters optimized for large warehouse:
 
@@ -407,20 +408,162 @@ POSE_GRAPH.constraint_builder.fast_correlative_scan_matcher.linear_search_window
 
 ---
 
-## Conclusion
+## Part 4: Transport Task Management System
 
-The autonomous map exploration system for AGV has been successfully designed and implemented with the following main components:
+Our transport task management system implements a complete solution that enables the AGV to autonomously transport cargo between stations on a pre-mapped warehouse. This system seamlessly integrates with the map exploration system from Part 3: it uses the static map generated during exploration (stored in `data/maps/`), switches from SLAM (Cartographer) to AMCL for static map localization, defines stations in YAML based on map coordinates, and reuses Nav2 parameters optimized during exploration with adjustments for transport operations (no unknown space planning).
 
-1. **Docker-based deployment**: Simplifies setup and deployment
-2. **Frontier-based exploration**: Efficient algorithm for autonomous exploration
-3. **Nav2 integration**: Smooth integration with navigation stack
-4. **Cartographer SLAM**: High-quality map generation with loop closure
-5. **Robustness features**: Stuck detection, recovery, blacklisting
+### 4.1. System Overview
 
-The system has been tested and validated on warehouse simulation with dimensions ~35m x 50m, achieving good coverage in reasonable time.
+The transport system provides:
+
+- **Task Queue Management**: FIFO queue for transport orders with validation
+- **Finite State Machine (FSM)**: State-based workflow for pickup and dropoff operations
+- **Nav2 Integration**: Seamless navigation to predefined stations
+- **Station Management**: YAML-based configuration for warehouse stations
+- **Error Handling**: Retry logic, timeout handling, and error recovery
+- **Status Monitoring**: Real-time status publishing for external systems
+
+### 4.2. Architecture and Components
+
+**Transport Task Manager**:
+- Main ROS2 node managing the entire transport workflow
+- Subscribes to `/agv/transport_orders` for incoming orders
+- Publishes `/agv/transport_status` for status updates
+- Integrates with Nav2 via `NavigateToPose` action client
+- Manages FSM execution at 10 Hz for responsive state handling
+
+**Finite State Machine (FSM)**:
+- State machine with 7 states: `IDLE`, `GO_PICKUP`, `WAIT_LOADING`, `GO_DROPOFF`, `WAIT_UNLOADING`, `DONE`, `ERROR`
+- Validates state transitions to ensure correct workflow
+- Tracks current order and retry count
+
+**Station Manager**:
+- Loads station configurations from YAML file
+- Provides station lookup and pose conversion (x, y, yaw → PoseStamped)
+- Supports station reloading via service call
+
+**Data Models**:
+- `TransportOrder`: Represents a transport task (pickup_station, dropoff_station, order_id, priority)
+- `TransportStatus`: Current system status (state, order_id, queue_length, progress, error_message)
+- `StationConfig`: Station configuration (name, x, y, yaw, type, description)
+
+### 4.3. Finite State Machine (FSM) Workflow
+
+#### 4.3.1. State Diagram
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> GO_PICKUP: New order from queue
+    GO_PICKUP --> WAIT_LOADING: Navigation succeeded
+    GO_PICKUP --> IDLE: Navigation failed (retry exhausted)
+    GO_PICKUP --> ERROR: 3+ consecutive failures
+    WAIT_LOADING --> GO_DROPOFF: Loading timeout completed
+    GO_DROPOFF --> WAIT_UNLOADING: Navigation succeeded
+    GO_DROPOFF --> IDLE: Navigation failed (retry exhausted)
+    GO_DROPOFF --> ERROR: 3+ consecutive failures
+    WAIT_UNLOADING --> DONE: Unloading timeout completed
+    DONE --> IDLE: Order completed
+    ERROR --> IDLE: Manual reset via service
+```
+
+#### 4.3.2. State Descriptions
+
+**IDLE**:
+- Waiting for transport orders from queue
+- When order available: validate, start order, transition to `GO_PICKUP`
+
+**GO_PICKUP**:
+- Navigating to pickup station using Nav2
+- Monitors navigation progress and result
+- On success: transition to `WAIT_LOADING`
+- On failure: retry up to `max_retries` (default: 3), then mark order as failed
+
+**WAIT_LOADING**:
+- Waiting for cargo loading at pickup station
+- Uses timeout-based simulation (default: 5 seconds)
+- On timeout: transition to `GO_DROPOFF`
+
+**GO_DROPOFF**:
+- Navigating to dropoff station using Nav2
+- Similar retry logic as `GO_PICKUP`
+- On success: transition to `WAIT_UNLOADING`
+
+**WAIT_UNLOADING**:
+- Waiting for cargo unloading at dropoff station
+- Uses timeout-based simulation (default: 5 seconds)
+- On timeout: transition to `DONE`
+
+**DONE**:
+- Order completed successfully
+- Clears current order, resets retry count
+- Transitions back to `IDLE` to process next order
+
+**ERROR**:
+- Entered after 3+ consecutive FSM execution errors or 3+ consecutive order failures
+- Requires manual reset via `/agv/reset_transport` service
+- Prevents system from continuing with corrupted state
+
+### 4.4. Nav2 Integration
+
+The transport system integrates with Nav2 using the `NavigateToPose` action for autonomous navigation. The system prepares navigation goals by looking up station poses and converting them to `PoseStamped` messages with quaternion orientation in the `map` frame. Navigation progress is tracked through feedback (0.0 - 0.99), and the system monitors for timeouts (default: 300s). On successful navigation, the system transitions to the next state (WAIT_LOADING or WAIT_UNLOADING). For failures (ABORTED, CANCELED, TIMEOUT, REJECTED), the system implements retry logic with a configurable maximum retry count (default: 3). After exceeding max retries, orders are marked as failed and the system transitions to IDLE or ERROR state if there are 3+ consecutive failures.
+
+### 4.5. Order Processing and Status Publishing
+
+Transport orders are received as JSON messages on `/agv/transport_orders` containing order_id, pickup_station, dropoff_station, priority, and timestamp. Orders are validated before queuing: both pickup and dropoff stations must be non-empty and different, and both stations must exist in the station configuration. Orders are processed in a FIFO (first-in-first-out) queue, with one order processed at a time.
+
+Status is published on `/agv/transport_status` at a configurable rate (default: 1 Hz), including current FSM state, current order ID, queue length, current target station, navigation progress (0.0 - 1.0), error messages, and timestamp. This provides real-time monitoring capabilities for external systems.
+
+### 4.6. Error Handling and Recovery
+
+The system implements comprehensive error handling for navigation errors, FSM execution errors, and recovery mechanisms. Navigation errors include timeout handling (300s configurable timeout) and retry logic (max 3 retries for ABORTED, CANCELED, TIMEOUT, REJECTED). FSM execution errors are caught and logged, with consecutive error tracking that transitions to ERROR state after 3+ consecutive failures. Recovery mechanisms include a manual reset service (`/agv/reset_transport`) that resets the FSM to IDLE, clears the order queue, cancels ongoing navigation, and resets error counters. A station reload service (`/agv/reload_stations`) allows runtime configuration updates by reloading station configurations from YAML.
+
+### 4.7. Configuration Parameters
+
+The system uses optimized Nav2 parameters for transport operations. AMCL (localization) uses the static map with initial pose set to warehouse entrance and a particle filter with 500-2000 particles. The controller (DWB Local Planner) supports max velocity of 0.78 m/s and max angular velocity of 2.0 rad/s with goal tolerance of 0.3 m. The planner uses A* algorithm for global path planning through known free space only. Costmaps are configured with global costmap at full map resolution, local costmap with 10m x 10m window, inflation radius of 0.6 m, and robot radius of 0.35 m.
 
 ---
 
-**Author**: [Student Name]  
-**Date**: [Completion Date]  
-**Project**: AGV for Smart Warehouse - Autonomous Map Exploration
+## Conclusion
+
+### Obtained Results / Achievements
+
+We have successfully developed and implemented a complete autonomous AGV system for smart warehouse operations with end-to-end functionality from map exploration to cargo transport. Key achievements include:
+
+1. **Autonomous Map Exploration**: Frontier-based exploration algorithm with vectorized operations (10-50x faster) and Cartographer SLAM integration for high-quality map generation, tested on warehouse environments (~35m x 50m).
+
+2. **Transport Task Management**: Robust finite state machine (7 states) for reliable cargo transport with comprehensive error handling, retry logic, and recovery mechanisms.
+
+3. **Nav2 Integration**: Seamless integration for both exploration (unknown space planning) and transport (static map navigation with AMCL), sharing optimized configuration.
+
+4. **Modular Architecture**: Independent yet integrated subsystems where exploration generates maps directly used by transport operations.
+
+5. **Robustness & Configuration**: Stuck detection, recovery mechanisms, goal blacklisting, error state management, and flexible YAML-based configuration with dynamic reloading.
+
+6. **Deployment & Monitoring**: Docker-based containerized deployment and real-time status publishing for external system integration.
+
+The system has been validated in simulation, successfully demonstrating autonomous exploration, map generation, and cargo transport with reliable navigation capabilities.
+
+### Limitations and Future Development
+
+#### Current Limitations
+
+1. **Single AGV Operation**: Supports only one AGV at a time, limiting scalability
+2. **No Battery Management**: Battery simulation and auto-charging not implemented
+3. **Manual Configuration**: Station positions require manual YAML configuration
+4. **No QR Code Verification**: Pickup/dropoff relies on timeout-based simulation
+5. **FIFO Queue Only**: No priority-based order scheduling
+6. **Simulation-only Testing**: Real-world validation needed
+7. **No Web Interface**: Limited monitoring and control capabilities
+
+#### Future Development
+
+1. **Multi-AGV Support**: Task scheduling, coordination, and collision avoidance for multiple AGVs
+2. **Battery Management**: Auto-charging with intelligent scheduling
+3. **QR Code Integration**: Cargo verification for accurate pickup/dropoff operations
+4. **Web Interface**: FastAPI-based dashboard for monitoring, control, and analytics
+5. **Priority Queue**: Priority-based order processing for urgent tasks
+6. **Route Optimization**: Optimal path planning considering multiple orders and traffic
+7. **Machine Learning**: Adaptive algorithms for frontier selection and route planning
+8. **Cloud/WMS Integration**: Enterprise-level warehouse management system integration
+9. **Real-world Deployment**: Validation and optimization for physical warehouse environments

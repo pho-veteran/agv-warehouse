@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}AGV Transport Dashboard{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+{% endblock %}
+
+{% block status_panel %}
+<div class="panel-header">
+    <h2>AGV Status</h2>
+    <div class="panel-refresh" id="status-refresh" title="Refresh status">
+        <span class="refresh-icon">🔄</span>
+    </div>
+</div>
+<div class="panel-content" id="status-content">
+    <!-- AGV Status Information -->
+    <div class="status-grid">
+        <!-- Current State -->
+        <div class="status-item">
+            <div class="status-label">Current State:</div>
+            <div class="status-value">
+                <span class="state-badge" id="current-state">UNKNOWN</span>
+            </div>
+        </div>
+
+        <!-- Current Destination -->
+        <div class="status-item">
+            <div class="status-label">Current Destination:</div>
+            <div class="status-value">
+                <span class="location-text" id="current-location">Unknown</span>
+            </div>
+        </div>
+
+        <!-- Queue Length -->
+        <div class="status-item">
+            <div class="status-label">Queue Length:</div>
+            <div class="status-value">
+                <span class="queue-count" id="queue-length">0</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Footer -->
+    <div class="status-footer">
+        <div class="last-status-update">
+            Last update: <span id="status-last-update">Never</span>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block form_panel %}
+<div class="panel-header">
+    <h2>Create Transport Order</h2>
+    <div class="form-help" title="Create a new transport order">
+        <span class="help-icon">❓</span>
+    </div>
+</div>
+<div class="panel-content">
+    <form id="order-form" class="order-form">
+        <div class="form-group">
+            <label for="pickup-station">Pickup Station:</label>
+            <select id="pickup-station" name="pickup_station" required>
+                <option value="">Select pickup station...</option>
+            </select>
+            <div class="form-error" id="pickup-error"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="dropoff-station">Dropoff Station:</label>
+            <select id="dropoff-station" name="dropoff_station" required>
+                <option value="">Select dropoff station...</option>
+            </select>
+            <div class="form-error" id="dropoff-error"></div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="submit-order">
+                <span class="btn-text">Create Order</span>
+                <span class="btn-spinner" style="display: none;">⏳</span>
+            </button>
+            <button type="reset" class="btn btn-secondary" id="reset-form">
+                Clear
+            </button>
+        </div>
+
+        <div class="form-message" id="form-message"></div>
+    </form>
+
+    <!-- Form Help Text -->
+    <div class="form-help-text">
+        <p><strong>Instructions:</strong> Select different stations for pickup and dropoff. Charging stations cannot be used as pickup locations.</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Dashboard-specific JavaScript -->
+<script src="/static/js/status-panel.js"></script>
+<script src="/static/js/order-form.js"></script>
+<script src="/static/js/dashboard.js"></script>
+
+<!-- Initialize dashboard functionality -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard components
+        if (typeof Dashboard !== 'undefined') {
+            Dashboard.init({
+                statusUpdateInterval: 5000,  // 5 seconds
+                staleDataThreshold: 15000    // 15 seconds
+            });
+        }
+    });
+</script>
+{% endblock %}

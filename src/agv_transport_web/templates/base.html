@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AGV Transport Dashboard{% endblock %}</title>
+    
+    <!-- Base CSS -->
+    <link rel="stylesheet" href="/static/css/base.css">
+    
+    <!-- Additional CSS blocks for child templates -->
+    {% block extra_css %}{% endblock %}
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+</head>
+<body>
+    <!-- Header Section -->
+    <header class="header">
+        <div class="header-content">
+            <div class="header-left">
+                <h1 class="system-title">
+                    <span class="title-icon">🤖</span>
+                    AGV Transport Dashboard
+                </h1>
+            </div>
+            <div class="header-right">
+                <div class="connection-status" id="connection-status">
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-dot" id="status-dot"></span>
+                        <span class="status-text" id="status-text">Connecting...</span>
+                    </div>
+                    <div class="last-update" id="last-update">
+                        Last update: <span id="last-update-time">--:--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Notification Area -->
+            <div class="notification-area" id="notification-area">
+                <!-- Success/Error messages will be displayed here -->
+            </div>
+
+            <!-- Dashboard Layout: 2 columns - Status and Form -->
+            <div class="dashboard-layout">
+                <!-- Status Panel -->
+                <div class="panel status-panel">
+                    {% block status_panel %}
+                    <div class="panel-header">
+                        <h2>AGV Status</h2>
+                        <div class="panel-refresh" id="status-refresh">
+                            <span class="refresh-icon">🔄</span>
+                        </div>
+                    </div>
+                    <div class="panel-content" id="status-content">
+                        <div class="loading-state">
+                            <div class="loading-spinner"></div>
+                            <p>Loading AGV status...</p>
+                        </div>
+                    </div>
+                    {% endblock %}
+                </div>
+
+                <!-- Order Creation Form Panel -->
+                <div class="panel form-panel">
+                    {% block form_panel %}
+                    <div class="panel-header">
+                        <h2>Create Transport Order</h2>
+                    </div>
+                    <div class="panel-content">
+                        <form id="order-form" class="order-form">
+                            <div class="form-group">
+                                <label for="pickup-station">Pickup Station:</label>
+                                <select id="pickup-station" name="pickup_station" required>
+                                    <option value="">Select pickup station...</option>
+                                </select>
+                                <div class="form-error" id="pickup-error"></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="dropoff-station">Dropoff Station:</label>
+                                <select id="dropoff-station" name="dropoff_station" required>
+                                    <option value="">Select dropoff station...</option>
+                                </select>
+                                <div class="form-error" id="dropoff-error"></div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary" id="submit-order">
+                                    <span class="btn-text">Create Order</span>
+                                    <span class="btn-spinner" style="display: none;">⏳</span>
+                                </button>
+                                <button type="reset" class="btn btn-secondary" id="reset-form">
+                                    Clear
+                                </button>
+                            </div>
+
+                            <div class="form-message" id="form-message"></div>
+                        </form>
+                    </div>
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Base JavaScript -->
+    <script src="/static/js/utils.js"></script>
+    <script src="/static/js/notifications.js"></script>
+    <script src="/static/js/connection-status.js"></script>
+    
+    <!-- Additional JavaScript blocks for child templates -->
+    {% block extra_js %}{% endblock %}
+
+    <!-- Initialize base functionality -->
+    <script>
+        // Base template does NOT auto-initialize components
+        // Dashboard.js will handle all initialization to avoid duplicates
+        console.log('Base template loaded - waiting for Dashboard to initialize');
+    </script>
+</body>
+</html>
