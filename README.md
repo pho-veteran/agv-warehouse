@@ -2,7 +2,7 @@
 
 Hệ thống AGV cho kho thông minh sử dụng Docker, ROS2 Jazzy và Gazebo Harmonic.
 
-**Note:** Setup này sử dụng single container (giống AGV_1 và ROBOTIS), đơn giản và dễ sử dụng.
+> Academic project developed by a university student for learning and demonstration purposes.
 
 ## Yêu cầu hệ thống
 
